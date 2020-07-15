@@ -1,2 +1,2 @@
 spotipy==2.13.0
-yandex-music==0.1.2
+git+https://github.com/MarshalX/yandex-music-api@development
