@@ -35,6 +35,7 @@ class Importer:
     def _add_music_to_spotify(self, tracks, not_imported_section, save_tracks_callback):
         spotify_tracks = []
 
+        tracks.reverse()
         for track in tracks:
             if track.available:
                 track_name = f'{", ".join([artist.name for artist in track.artists])} - {track.title}'
