@@ -91,7 +91,7 @@ def main():
                     unimport_tracks[playlist_title].append(f'{track_artist} - {track_title}')
                     print('NO')
                 if len(spotify_tracks) == 50:
-                    print(long_string.format(f'Adding {len(spotify_tracks)} tracks in playlist {playlist_title}...'),
+                    print(short_string.format(f'Adding {len(spotify_tracks)} tracks in playlist {playlist_title}...'),
                           end='')
                     spotify_client.user_playlist_add_tracks(user, spotify_playlist_id, spotify_tracks)
                     spotify_tracks.clear()
