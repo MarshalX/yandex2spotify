@@ -32,12 +32,12 @@ class Importer:
 
         self.not_imported_tracks = {}
 
-    def _add_music_to_spotify(self, yandex_tracks, not_imported_section, save_tracks_callback):
+    def _add_music_to_spotify(self, tracks, not_imported_section, save_tracks_callback):
         spotify_tracks = []
 
-        for yandex_track in yandex_tracks:
-            if yandex_track['available']:
-                track_name = f'{", ".join([artist.name for artist in yandex_track.artists])} - {yandex_track.title}'
+        for track in tracks:
+            if track.available:
+                track_name = f'{", ".join([artist.name for artist in track.artists])} - {track.title}'
 
                 logger.info(f'Importing track: {track_name}...')
 
