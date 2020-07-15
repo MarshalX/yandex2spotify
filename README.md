@@ -3,7 +3,7 @@ Simple Python script, that allow to import favorite tracks and playlists fro Yan
 
 ## Install requirments
 ```bash
-pip3 install -r requirements
+pip3 install -r requirements.txt
 ```
 
 ## Usage
