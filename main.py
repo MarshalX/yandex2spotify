@@ -3,7 +3,6 @@ import configparser
 
 from yandex_music import Client
 from spotipy.oauth2 import SpotifyOAuth
-from re import compile, match
 
 config = configparser.RawConfigParser()
 config.read('config.ini')
@@ -23,9 +22,10 @@ spotify_client = spotipy.Spotify(auth_manager=auth_manager)
 yandex_playlists = yandex_client.users_playlists_list()
 user = spotify_client.me()['id']
 
+
 def main():
     print(f'User: {user}')
-    for yandex_playlist in yandex_playlists:
+    for yandex_playlist in [yandex_playlists[2]]:
         playlist_title = yandex_playlist.title
         spotify_playlist = spotify_client.user_playlist_create(user, playlist_title)
         spotify_playlist_id = spotify_playlist['id']
@@ -36,13 +36,11 @@ def main():
             track_available = yandex_track['track']['available']
             if track_available:
                 track_artist = yandex_track['track']['artists'][0]['name']
-                track_album = yandex_track['track']['albums'][0]['title']
                 track_title = yandex_track['track']['title']
                 print(f'Finding track: {track_artist} - {track_title}...', end='')
-                found_tracks = spotify_client.search(f'{track_artist} {track_album} {track_title}',
+                found_tracks = spotify_client.search(f'{track_artist} - {track_title}',
                                                      type='track')['tracks']['items']
-                filter_tracks = [track for track in found_tracks if match(compile(track_album), track['album']['name']) and
-                                                                    match(compile(track_title), track['name'])]
+                filter_tracks = [track for track in found_tracks if track['name'].lower().startswith(track_title.lower())]
                 if len(filter_tracks) > 0:
                     spotify_tracks.append(filter_tracks[0]['id'])
                     print('\tOK')
