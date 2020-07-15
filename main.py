@@ -5,11 +5,9 @@ import os
 from yandex_music import Client
 from spotipy.oauth2 import SpotifyOAuth
 
-config = configparser.RawConfigParser()
-config.read('config.ini')
-CLIENT_ID = config.get('SPOTIFY', 'CLIENT_ID')
-CLIENT_SECRET = config.get('SPOTIFY', 'CLIENT_SECRET')
-REDIRECT_URI = config.get('SPOTIFY', 'REDIRECT_URI')
+CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
+CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
+REDIRECT_URI = 'https://open.spotify.com'
 USERNAME = config.get('SPOTIFY', 'USERNAME')
 TOKEN = config.get('YANDEX', 'TOKEN')
 
