@@ -24,7 +24,7 @@ user = spotify_client.me()['id']
 
 def main():
     print(f'User: {user}')
-    for yandex_playlist in [yandex_playlists[1]]:
+    for yandex_playlist in yandex_playlists:
         playlist_title = yandex_playlist.title
         spotify_playlist = spotify_client.user_playlist_create(user, playlist_title)
         spotify_playlist_id = spotify_playlist['id']
