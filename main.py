@@ -1,5 +1,5 @@
 import spotipy
-import configparser
+import argparse
 import os
 
 from yandex_music import Client
@@ -8,27 +8,35 @@ from spotipy.oauth2 import SpotifyOAuth
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
 CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
 REDIRECT_URI = 'https://open.spotify.com'
-USERNAME = config.get('SPOTIFY', 'USERNAME')
-TOKEN = config.get('YANDEX', 'TOKEN')
-
-yandex_client = Client.from_token(TOKEN)
-
-auth_manager = SpotifyOAuth(client_id=CLIENT_ID,
-                            client_secret=CLIENT_SECRET,
-                            redirect_uri=REDIRECT_URI,
-                            scope='playlist-modify-public, user-library-modify', username=USERNAME)
-spotify_client = spotipy.Spotify(auth_manager=auth_manager)
-yandex_playlists = yandex_client.users_playlists_list()
-user = spotify_client.me()['id']
-
 
 rows, columns = os.popen('stty size', 'r').read().split()
 long_string = '{:<'+columns+'}'
 short_string = '{:<'+str(int(columns)-2)+'}'
 
 
+def get_args():
+    parser = argparse.ArgumentParser(description='Creates a playlist for user')
+    parser.add_argument('-u', '--username', required=True,
+                        help='Username at spotify.com')
+    parser.add_argument('-l', '--login', required=True,
+                        help='Login at music.yandex.ru')
+    parser.add_argument('-p', '--password', required=True,
+                        help='Password at music.yandex.ru')
+    return parser.parse_args()
+
+
 def main():
-    print(f'User: {user}')
+    args = get_args()
+    auth_manager = SpotifyOAuth(client_id=CLIENT_ID,
+                                client_secret=CLIENT_SECRET,
+                                redirect_uri=REDIRECT_URI,
+                                scope='playlist-modify-public, user-library-modify',
+                                username=args.username)
+    spotify_client = spotipy.Spotify(auth_manager=auth_manager)
+    yandex_client = Client.from_credentials(args.login, args.password)
+    user = spotify_client.me()['id']
+    print(long_string.format(f'User ID: {user}'))
+
     likes_tracks = yandex_client.users_likes_tracks().tracks
     spotify_tracks = []
     unimport_tracks = {}
@@ -58,6 +66,8 @@ def main():
         print(short_string.format(f'Saving {len(spotify_tracks)} tracks...'), end='')
         spotify_client.current_user_saved_tracks_add(spotify_tracks)
         print('OK')
+
+    yandex_playlists = yandex_client.users_playlists_list()
     for yandex_playlist in yandex_playlists:
         playlist_title = yandex_playlist.title
         spotify_playlist = spotify_client.user_playlist_create(user, playlist_title)
