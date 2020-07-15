@@ -1,0 +1,8 @@
+venv/
+
+.idea
+*.iml
+
+*.pyc
+
+.cache*
