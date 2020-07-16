@@ -32,7 +32,7 @@ class Importer:
 
         self.not_imported = {}
 
-    def _add_items_to_spotify(self, items, not_imported_section, save_items_callback, type):
+    def _add_items_to_spotify(self, items, not_imported_section, save_items_callback, type_):
         spotify_items = []
 
         items.reverse()
@@ -42,7 +42,7 @@ class Importer:
 
                 logger.info(f'Importing {type}: {item_name}...')
 
-                found_tracks = self.spotify_client.search(item_name, type=type)[type+'s']['items']
+                found_tracks = self.spotify_client.search(item_name, type=type_)[type_+'s']['items']
                 if len(found_tracks):
                     spotify_items.append(found_tracks[0]['id'])
                     logger.info('OK')
@@ -110,10 +110,10 @@ class Importer:
 
     def print_not_imported(self):
         logger.error('Not imported tracks:')
-        for playlist, tracks in self.not_imported.items():
-            logger.info(f'{playlist}:')
-            for track in tracks:
-                logger.info(track)
+        for section, items in self.not_imported.items():
+            logger.info(f'{section}:')
+            for item in items:
+                logger.info(item)
 
 
 if __name__ == '__main__':
