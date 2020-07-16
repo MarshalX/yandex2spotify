@@ -1,10 +1,10 @@
 import argparse
 import logging
+from enum import Enum
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client
-from enum import Enum
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
 CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
@@ -22,9 +22,11 @@ def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
+
 class Type(Enum):
-    track = 1
-    album = 2
+    TRACK = 'track'
+    ALBUM = 'album'
+
 
 class Importer:
     def __init__(self, spotify_client, yandex_client):
@@ -44,9 +46,9 @@ class Importer:
             if item.available:
                 item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
 
-                logger.info(f'Importing {type}: {item_name}...')
+                logger.info(f'Importing {type_.value}: {item_name}...')
 
-                found_tracks = self.spotify_client.search(item_name, type=type_.name)[type_.name+'s']['items']
+                found_tracks = self.spotify_client.search(item_name, type=type_.value)[type_.value+'s']['items']
                 if len(found_tracks):
                     spotify_items.append(found_tracks[0]['id'])
                     logger.info('OK')
@@ -69,7 +71,7 @@ class Importer:
             importer.spotify_client.current_user_saved_tracks_add(spotify_tracks)
             logger.info('OK')
 
-        self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback, Type.track)
+        self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback, Type.TRACK)
 
     def import_playlists(self):
         playlists = self.yandex_client.users_playlists_list()
@@ -89,7 +91,7 @@ class Importer:
                 importer.spotify_client.user_playlist_add_tracks(importer.user, spotify_playlist_id, spotify_tracks)
                 logger.info('OK')
 
-            self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback, Type.track)
+            self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback, Type.TRACK)
 
     def import_albums(self):
         self.not_imported['Albums'] = []
@@ -103,7 +105,7 @@ class Importer:
             importer.spotify_client.current_user_saved_albums_add(spotify_albums)
             logger.info('OK')
 
-        self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback, Type.album)
+        self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback, Type.ALBUM)
 
     def import_all(self):
         self.import_likes()
