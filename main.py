@@ -1,5 +1,6 @@
 import argparse
 import logging
+from enum import Enum
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -22,6 +23,11 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
+class Type(Enum):
+    TRACK = 'track'
+    ALBUM = 'album'
+
+
 class Importer:
     def __init__(self, spotify_client, yandex_client):
         self.spotify_client = spotify_client
@@ -30,31 +36,31 @@ class Importer:
         self.user = spotify_client.me()['id']
         logger.info(f'User ID: {self.user}')
 
-        self.not_imported_tracks = {}
+        self.not_imported = {}
 
-    def _add_music_to_spotify(self, tracks, not_imported_section, save_tracks_callback):
-        spotify_tracks = []
+    def _add_items_to_spotify(self, items, not_imported_section, save_items_callback, type_):
+        spotify_items = []
 
-        tracks.reverse()
-        for track in tracks:
-            if track.available:
-                track_name = f'{", ".join([artist.name for artist in track.artists])} - {track.title}'
+        items.reverse()
+        for item in items:
+            if item.available:
+                item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
 
-                logger.info(f'Importing track: {track_name}...')
+                logger.info(f'Importing {type_.value}: {item_name}...')
 
-                found_tracks = self.spotify_client.search(track_name, type='track')['tracks']['items']
+                found_tracks = self.spotify_client.search(item_name, type=type_.value)[type_.value+'s']['items']
                 if len(found_tracks):
-                    spotify_tracks.append(found_tracks[0]['id'])
+                    spotify_items.append(found_tracks[0]['id'])
                     logger.info('OK')
                 else:
-                    not_imported_section.append(track_name)
+                    not_imported_section.append(item_name)
                     logger.warning('NO')
 
-        for chunk in chunks(spotify_tracks, 50):
-            save_tracks_callback(self, chunk)
+        for chunk in chunks(spotify_items, 50):
+            save_items_callback(self, chunk)
 
     def import_likes(self):
-        self.not_imported_tracks['Likes'] = []
+        self.not_imported['Likes'] = []
 
         likes_tracks = self.yandex_client.users_likes_tracks().tracks
         tracks = self.yandex_client.tracks([f'{track.id}:{track.album_id}' for track in likes_tracks if track.album_id])
@@ -65,7 +71,7 @@ class Importer:
             importer.spotify_client.current_user_saved_tracks_add(spotify_tracks)
             logger.info('OK')
 
-        self._add_music_to_spotify(tracks, self.not_imported_tracks['Likes'], save_tracks_callback)
+        self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback, Type.TRACK)
 
     def import_playlists(self):
         playlists = self.yandex_client.users_playlists_list()
@@ -75,7 +81,7 @@ class Importer:
 
             logger.info(f'Importing playlist {playlist.title}...')
 
-            self.not_imported_tracks[playlist.title] = []
+            self.not_imported[playlist.title] = []
 
             playlist_tracks = playlist.fetch_tracks()
             tracks = [track.track for track in playlist_tracks]
@@ -85,20 +91,35 @@ class Importer:
                 importer.spotify_client.user_playlist_add_tracks(importer.user, spotify_playlist_id, spotify_tracks)
                 logger.info('OK')
 
-            self._add_music_to_spotify(tracks, self.not_imported_tracks[playlist.title], save_tracks_callback)
+            self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback, Type.TRACK)
+
+    def import_albums(self):
+        self.not_imported['Albums'] = []
+
+        likes_albums = self.yandex_client.users_likes_albums()
+        albums = [album.album for album in likes_albums]
+        logger.info('Importing albums...')
+
+        def save_albums_callback(importer, spotify_albums):
+            logger.info(f'Saving {len(spotify_albums)} albums...')
+            importer.spotify_client.current_user_saved_albums_add(spotify_albums)
+            logger.info('OK')
+
+        self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback, Type.ALBUM)
 
     def import_all(self):
         self.import_likes()
         self.import_playlists()
+        self.import_albums()
 
-        self.print_not_imported_tracks()
+        self.print_not_imported()
 
-    def print_not_imported_tracks(self):
+    def print_not_imported(self):
         logger.error('Not imported tracks:')
-        for playlist, tracks in self.not_imported_tracks.items():
-            logger.info(f'{playlist}:')
-            for track in tracks:
-                logger.info(track)
+        for section, items in self.not_imported.items():
+            logger.info(f'{section}:')
+            for item in items:
+                logger.info(item)
 
 
 if __name__ == '__main__':
