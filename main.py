@@ -2,8 +2,7 @@ import argparse
 import logging
 import platform
 from enum import Enum
-from subprocess import call
-from os import path
+from os import path, system
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -28,11 +27,11 @@ def chunks(lst, n):
 
 def proc_captcha(captcha):
     captcha.download('captcha.gif')
-    system = platform.system()
-    if system == 'Windows':
-        call('captcha.gif', shell=True)
-    elif system == 'Linux':
-        call(['xdg-open', 'captcha.gif'])
+    system_ = platform.system()
+    if system_ == 'Windows':
+        system('captcha.gif')
+    elif system_ == 'Linux':
+        system('xdg-open captcha.gif')
     return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
 
