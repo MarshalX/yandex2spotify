@@ -1,6 +1,8 @@
 import argparse
 import logging
+import platform
 from enum import Enum
+from os import path, system
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -21,6 +23,16 @@ def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
+
+
+def proc_captcha(captcha):
+    captcha.download('captcha.gif')
+    with platform.system() as system_:
+        if system_ == 'Windows':
+            system('captcha.gif')
+        elif system_ == 'Linux':
+            system('xdg-open captcha.gif')
+    return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
 
 class Type(Enum):
@@ -163,9 +175,9 @@ if __name__ == '__main__':
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
 
     if args.login and args.password:
-        yandex_client_ = Client.from_credentials(args.login, args.password)
+        yandex_client_ = Client.from_credentials(args.login, args.password, captcha_callback=proc_captcha)
     elif args.token:
-        yandex_client_ = Client(args.token)
+        yandex_client_ = Client(args.token, captcha_callback=proc_captcha)
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
