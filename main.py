@@ -115,7 +115,7 @@ class Importer:
 
             if playlist.cover.type == 'pic':
                 filename_png = f'{playlist.kind}-cover.png'
-                playlist.cover.download(filename_png)
+                playlist.cover.download(filename_png, size='1000x1000')
 
                 filename_jpg = png2jpg(filename_png)
                 self.spotify_client.playlist_upload_cover_image(spotify_playlist_id, encode_file_base64(filename_jpg))
