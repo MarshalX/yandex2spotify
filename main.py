@@ -27,11 +27,11 @@ def chunks(lst, n):
 
 def proc_captcha(captcha):
     captcha.download('captcha.gif')
-    system_ = platform.system()
-    if system_ == 'Windows':
-        system('captcha.gif')
-    elif system_ == 'Linux':
-        system('xdg-open captcha.gif')
+    with platform.system() as system_:
+        if system_ == 'Windows':
+            system('captcha.gif')
+        elif system_ == 'Linux':
+            system('xdg-open captcha.gif')
     return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
 
