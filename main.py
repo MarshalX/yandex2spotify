@@ -26,6 +26,7 @@ def chunks(lst, n):
 class Type(Enum):
     TRACK = 'track'
     ALBUM = 'album'
+    ARTIST = 'artist'
 
 
 class Importer:
@@ -44,13 +45,16 @@ class Importer:
         items.reverse()
         for item in items:
             if item.available:
-                item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
+                if type_ == Type.ARTIST:
+                    item_name = item.name
+                else:
+                    item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
 
                 logger.info(f'Importing {type_.value}: {item_name}...')
 
-                found_tracks = self.spotify_client.search(item_name, type=type_.value)[type_.value+'s']['items']
-                if len(found_tracks):
-                    spotify_items.append(found_tracks[0]['id'])
+                found_items = self.spotify_client.search(item_name, type=type_.value)[type_.value+'s']['items']
+                if len(found_items):
+                    spotify_items.append(found_items[0]['id'])
                     logger.info('OK')
                 else:
                     not_imported_section.append(item_name)
@@ -107,15 +111,30 @@ class Importer:
 
         self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback, Type.ALBUM)
 
+    def import_artists(self):
+        self.not_imported['Artists'] = []
+
+        likes_artists = self.yandex_client.users_likes_artists()
+        artists = [artist.artist for artist in likes_artists]
+        logger.info('Importing artists...')
+
+        def save_artists_callback(importer, spotify_artists):
+            logger.info(f'Saving {len(spotify_artists)} artists...')
+            importer.spotify_client.user_follow_artists(spotify_artists)
+            logger.info('OK')
+
+        self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
+
     def import_all(self):
         self.import_likes()
         self.import_playlists()
         self.import_albums()
+        self.import_artists()
 
         self.print_not_imported()
 
     def print_not_imported(self):
-        logger.error('Not imported tracks:')
+        logger.error('Not imported items:')
         for section, items in self.not_imported.items():
             logger.info(f'{section}:')
             for item in items:
@@ -138,7 +157,7 @@ if __name__ == '__main__':
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         redirect_uri=REDIRECT_URI,
-        scope='playlist-modify-public, user-library-modify',
+        scope='playlist-modify-public, user-library-modify, user-follow-modify',
         username=args.spotify
     )
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
