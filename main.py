@@ -23,6 +23,11 @@ def chunks(lst, n):
         yield lst[i:i + n]
 
 
+def proc_captcha(captcha):
+    captcha.download('captcha.gif')
+    return input('Input number from picture:')
+
+
 class Type(Enum):
     TRACK = 'track'
     ALBUM = 'album'
@@ -163,7 +168,7 @@ if __name__ == '__main__':
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
 
     if args.login and args.password:
-        yandex_client_ = Client.from_credentials(args.login, args.password)
+        yandex_client_ = Client.from_credentials(args.login, args.password, captcha_callback=proc_captcha)
     elif args.token:
         yandex_client_ = Client(args.token)
     else:
