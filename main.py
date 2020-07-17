@@ -177,7 +177,7 @@ if __name__ == '__main__':
     if args.login and args.password:
         yandex_client_ = Client.from_credentials(args.login, args.password, captcha_callback=proc_captcha)
     elif args.token:
-        yandex_client_ = Client(args.token, captcha_callback=proc_captcha)
+        yandex_client_ = Client(args.token)
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
