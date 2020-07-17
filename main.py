@@ -56,7 +56,7 @@ class Importer:
                     not_imported_section.append(item_name)
                     logger.warning('NO')
 
-        for chunk in chunks(spotify_tracks, 50):
+        for chunk in chunks(spotify_items, 50):
             save_items_callback(self, chunk)
 
     def import_likes(self):
