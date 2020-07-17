@@ -1,6 +1,7 @@
 import argparse
 import logging
 from enum import Enum
+from subprocess import call
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -25,6 +26,7 @@ def chunks(lst, n):
 
 def proc_captcha(captcha):
     captcha.download('captcha.gif')
+    call(['xdg-open', 'captcha.gif'])
     return input('Input number from captcha.gif:')
 
 
