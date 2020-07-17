@@ -1,5 +1,5 @@
 # yandex2spotify
-Simple Python script, that allow to import favorite tracks and playlists from Yandex.Music to Spotify
+Simple Python script, that allow to import favorite tracks, playlists, albums and artists from Yandex.Music to Spotify
 
 ## Install requirments
 ```bash
