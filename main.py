@@ -3,6 +3,7 @@ import logging
 import platform
 from enum import Enum
 from subprocess import call
+from os import path
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -32,8 +33,7 @@ def proc_captcha(captcha):
         call('captcha.gif', shell=True)
     elif system == 'Linux':
         call(['xdg-open', 'captcha.gif'])
-    call(['xdg-open', 'captcha.gif'])
-    return input('Input number from captcha.gif:')
+    return input(f'Input number from "captcha.gif" ({os.path.abspath("captcha.gif")}):')
 
 
 class Type(Enum):
