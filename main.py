@@ -42,9 +42,14 @@ class Type(Enum):
 
 
 class Importer:
-    def __init__(self, spotify_client, yandex_client):
+    def __init__(self, spotify_client, yandex_client, ignore_like, ignore_playlists, ignore_albums, ignore_artists):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
+
+        self.ignore_like = ignore_like
+        self.ignore_playlists = ignore_playlists
+        self.ignore_albums = ignore_albums
+        self.ignore_artists = ignore_artists
 
         self.user = spotify_client.me()['id']
         logger.info(f'User ID: {self.user}')
@@ -138,10 +143,17 @@ class Importer:
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
 
     def import_all(self):
-        self.import_likes()
-        self.import_playlists()
-        self.import_albums()
-        self.import_artists()
+        if not self.ignore_like:
+            self.import_likes()
+
+        if not self.ignore_playlists:
+            self.import_playlists()
+
+        if not self.ignore_albums:
+            self.import_albums()
+
+        if not self.ignore_artists:
+            self.import_artists()
 
         self.print_not_imported()
 
@@ -157,11 +169,17 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Creates a playlist for user')
     parser.add_argument('-u', '-s', '--spotify', required=True, help='Username at spotify.com')
 
-    group = parser.add_argument_group('authentication')
-    group.add_argument('-l', '--login', help='Login at music.yandex.com')
-    group.add_argument('-p', '--password', help='Password at music.yandex.com')
+    group_auth = parser.add_argument_group('authentication')
+    group_auth.add_argument('-l', '--login', help='Login at music.yandex.com')
+    group_auth.add_argument('-p', '--password', help='Password at music.yandex.com')
 
     parser.add_argument('-t', '--token', help='Token from music.yandex.com account')
+
+    group_ignore = parser.add_argument_group('ignore')
+    group_ignore.add_argument('--nolike', help='Ignore likes', default=False, action='store_true')
+    group_ignore.add_argument('--noplaylists', help='Ignore playlists', default=False, action='store_true')
+    group_ignore.add_argument('--noalbums', help='Ignore albums', default=False, action='store_true')
+    group_ignore.add_argument('--noartists', help='Ignore artists', default=False, action='store_true')
 
     args = parser.parse_args()
 
@@ -181,4 +199,4 @@ if __name__ == '__main__':
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
-    Importer(spotify_client_, yandex_client_).import_all()
+    Importer(spotify_client_, yandex_client_, args.nolike, args.noplaylists, args.noalbums, args.noartists).import_all()
