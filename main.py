@@ -25,7 +25,7 @@ def chunks(lst, n):
 
 def proc_captcha(captcha):
     captcha.download('captcha.gif')
-    return input('Input number from picture:')
+    return input('Input number from captcha.gif:')
 
 
 class Type(Enum):
