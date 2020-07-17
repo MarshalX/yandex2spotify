@@ -33,7 +33,7 @@ def proc_captcha(captcha):
         call('captcha.gif', shell=True)
     elif system == 'Linux':
         call(['xdg-open', 'captcha.gif'])
-    return input(f'Input number from "captcha.gif" ({os.path.abspath("captcha.gif")}):')
+    return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
 
 class Type(Enum):
