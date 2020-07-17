@@ -1,5 +1,6 @@
 import argparse
 import logging
+import platform
 from enum import Enum
 from subprocess import call
 
@@ -26,6 +27,11 @@ def chunks(lst, n):
 
 def proc_captcha(captcha):
     captcha.download('captcha.gif')
+    system = platform.system()
+    if system == 'Windows':
+        call('captcha.gif', shell=True)
+    elif system == 'Linux':
+        call(['xdg-open', 'captcha.gif'])
     call(['xdg-open', 'captcha.gif'])
     return input('Input number from captcha.gif:')
 
@@ -172,7 +178,7 @@ if __name__ == '__main__':
     if args.login and args.password:
         yandex_client_ = Client.from_credentials(args.login, args.password, captcha_callback=proc_captcha)
     elif args.token:
-        yandex_client_ = Client(args.token)
+        yandex_client_ = Client(args.token, captcha_callback=proc_captcha)
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
