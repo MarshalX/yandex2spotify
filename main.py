@@ -2,8 +2,10 @@ import argparse
 import logging
 import platform
 from enum import Enum
+from base64 import b64encode
 from os import path, system
 
+from PIL import Image
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client
@@ -33,6 +35,20 @@ def proc_captcha(captcha):
         elif system_ == 'Linux':
             system('xdg-open captcha.gif')
     return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
+
+
+def png2jpg(filename):
+    im = Image.open(filename).convert('RGB')
+
+    new_filename = path.splitext(filename)[0] + '.jpg'
+    im.save(new_filename)
+
+    return new_filename
+
+
+def encode_file_base64(filename):
+    with open(filename, 'rb') as f:
+        return b64encode(f.read())
 
 
 class Type(Enum):
@@ -96,6 +112,13 @@ class Importer:
             spotify_playlist_id = spotify_playlist['id']
 
             logger.info(f'Importing playlist {playlist.title}...')
+
+            if playlist.cover.type == 'pic':
+                filename_png = f'{playlist.kind}-cover.png'
+                playlist.cover.download(filename_png)
+
+                filename_jpg = png2jpg(filename_png)
+                self.spotify_client.playlist_upload_cover_image(spotify_playlist_id, encode_file_base64(filename_jpg))
 
             self.not_imported[playlist.title] = []
 
@@ -169,7 +192,7 @@ if __name__ == '__main__':
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         redirect_uri=REDIRECT_URI,
-        scope='playlist-modify-public, user-library-modify, user-follow-modify',
+        scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
         username=args.spotify
     )
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
