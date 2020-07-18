@@ -196,7 +196,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-t', '--token', help='Token from music.yandex.com account')
 
-    parser.add_argument('--ignore', nargs='+', help='Don\'t import some stuff',
+    parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
     args = parser.parse_args()
