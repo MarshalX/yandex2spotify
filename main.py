@@ -42,7 +42,7 @@ class Type(Enum):
     ARTIST = 'artist'
 
 
-class Feature(NamedTuple):
+class ItemForImport(NamedTuple):
     disable: bool
     func: Callable
 
@@ -51,15 +51,15 @@ class Feature(NamedTuple):
 
 
 class Importer:
-    def __init__(self, spotify_client, yandex_client, ignore_like, ignore_playlists, ignore_albums, ignore_artists):
+    def __init__(self, spotify_client, yandex_client, ignore_list):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
 
-        self._features = [
-            Feature(disable=ignore_like, func=self.import_likes),
-            Feature(disable=ignore_playlists, func=self.import_playlists),
-            Feature(disable=ignore_albums, func=self.import_albums),
-            Feature(disable=ignore_artists, func=self.import_artists)
+        self._items_for_import = [
+            ItemForImport(disable='likes' in ignore_list, func=self.import_likes),
+            ItemForImport(disable='playlists' in ignore_list, func=self.import_playlists),
+            ItemForImport(disable='albums' in ignore_list, func=self.import_albums),
+            ItemForImport(disable='artists' in ignore_list, func=self.import_artists)
         ]
 
         self.user = spotify_client.me()['id']
@@ -154,9 +154,9 @@ class Importer:
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
 
     def import_all(self):
-        for feature in self._features:
-            if not feature.disable:
-                feature()
+        for item in self._items_for_import:
+            if not item.disable:
+                item()
 
         self.print_not_imported()
 
@@ -178,11 +178,8 @@ if __name__ == '__main__':
 
     parser.add_argument('-t', '--token', help='Token from music.yandex.com account')
 
-    group_ignore = parser.add_argument_group('ignore')
-    group_ignore.add_argument('--nolike', help='Ignore likes', default=False, action='store_true')
-    group_ignore.add_argument('--noplaylists', help='Ignore playlists', default=False, action='store_true')
-    group_ignore.add_argument('--noalbums', help='Ignore albums', default=False, action='store_true')
-    group_ignore.add_argument('--noartists', help='Ignore artists', default=False, action='store_true')
+    parser.add_argument('--ignore', nargs='+', help='Don\'t import some stuff',
+                        choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
     args = parser.parse_args()
 
@@ -202,4 +199,4 @@ if __name__ == '__main__':
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
-    Importer(spotify_client_, yandex_client_, args.nolike, args.noplaylists, args.noalbums, args.noartists).import_all()
+    Importer(spotify_client_, yandex_client_, args.ignore).import_all()
