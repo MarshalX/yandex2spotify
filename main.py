@@ -1,7 +1,6 @@
 import argparse
 import logging
 from enum import Enum
-from typing import NamedTuple, Callable
 from base64 import b64encode
 from os import path
 
