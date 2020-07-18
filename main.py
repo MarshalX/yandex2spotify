@@ -1,11 +1,12 @@
 import argparse
 import logging
-import platform
 from enum import Enum
-from os import path, system
 from typing import NamedTuple, Callable
+from base64 import b64encode
+from os import path
 
 import spotipy
+from PIL import Image
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client
 
@@ -28,12 +29,22 @@ def chunks(lst, n):
 
 def proc_captcha(captcha):
     captcha.download('captcha.gif')
-    with platform.system() as system_:
-        if system_ == 'Windows':
-            system('captcha.gif')
-        elif system_ == 'Linux':
-            system('xdg-open captcha.gif')
+    Image.open('captcha.gif').show()
     return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
+
+
+def png2jpg(filename):
+    im = Image.open(filename).convert('RGB')
+
+    new_filename = path.splitext(filename)[0] + '.jpg'
+    im.save(new_filename)
+
+    return new_filename
+
+
+def encode_file_base64(filename):
+    with open(filename, 'rb') as f:
+        return b64encode(f.read())
 
 
 class Type(Enum):
@@ -113,6 +124,13 @@ class Importer:
 
             logger.info(f'Importing playlist {playlist.title}...')
 
+            if playlist.cover.type == 'pic':
+                filename_png = f'{playlist.kind}-cover.png'
+                playlist.cover.download(filename_png, size='1000x1000')
+
+                filename_jpg = png2jpg(filename_png)
+                self.spotify_client.playlist_upload_cover_image(spotify_playlist_id, encode_file_base64(filename_jpg))
+
             self.not_imported[playlist.title] = []
 
             playlist_tracks = playlist.fetch_tracks()
@@ -187,7 +205,7 @@ if __name__ == '__main__':
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         redirect_uri=REDIRECT_URI,
-        scope='playlist-modify-public, user-library-modify, user-follow-modify',
+        scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
         username=args.spotify
     )
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
