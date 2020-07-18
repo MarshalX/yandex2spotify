@@ -3,6 +3,7 @@ import logging
 import platform
 from enum import Enum
 from os import path, system
+from typing import NamedTuple, Callable
 
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
@@ -41,15 +42,25 @@ class Type(Enum):
     ARTIST = 'artist'
 
 
+class Feature(NamedTuple):
+    disable: bool
+    func: Callable
+
+    def __call__(self):
+        return self.func()
+
+
 class Importer:
     def __init__(self, spotify_client, yandex_client, ignore_like, ignore_playlists, ignore_albums, ignore_artists):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
 
-        self.ignore_like = ignore_like
-        self.ignore_playlists = ignore_playlists
-        self.ignore_albums = ignore_albums
-        self.ignore_artists = ignore_artists
+        self._features = [
+            Feature(disable=ignore_like, func=self.import_likes),
+            Feature(disable=ignore_playlists, func=self.import_playlists),
+            Feature(disable=ignore_albums, func=self.import_albums),
+            Feature(disable=ignore_artists, func=self.import_artists)
+        ]
 
         self.user = spotify_client.me()['id']
         logger.info(f'User ID: {self.user}')
@@ -143,17 +154,9 @@ class Importer:
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
 
     def import_all(self):
-        if not self.ignore_like:
-            self.import_likes()
-
-        if not self.ignore_playlists:
-            self.import_playlists()
-
-        if not self.ignore_albums:
-            self.import_albums()
-
-        if not self.ignore_artists:
-            self.import_artists()
+        for feature in self._features:
+            if not feature.disable:
+                feature()
 
         self.print_not_imported()
 
