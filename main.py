@@ -1,12 +1,11 @@
 import argparse
 import logging
-import platform
 from enum import Enum
 from base64 import b64encode
-from os import path, system
+from os import path
 
-from PIL import Image
 import spotipy
+from PIL import Image
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client
 
@@ -29,11 +28,7 @@ def chunks(lst, n):
 
 def proc_captcha(captcha):
     captcha.download('captcha.gif')
-    with platform.system() as system_:
-        if system_ == 'Windows':
-            system('captcha.gif')
-        elif system_ == 'Linux':
-            system('xdg-open captcha.gif')
+    Image.open('captcha.gif').show()
     return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
 
