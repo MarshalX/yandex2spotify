@@ -53,7 +53,7 @@ class Type(Enum):
     ARTIST = 'artist'
 
 
-class ItemForImport(NamedTuple):
+class ImportingItem(NamedTuple):
     disable: bool
     func: Callable
 
@@ -67,10 +67,10 @@ class Importer:
         self.yandex_client = yandex_client
 
         self._items_for_import = [
-            ItemForImport(disable='likes' in ignore_list, func=self.import_likes),
-            ItemForImport(disable='playlists' in ignore_list, func=self.import_playlists),
-            ItemForImport(disable='albums' in ignore_list, func=self.import_albums),
-            ItemForImport(disable='artists' in ignore_list, func=self.import_artists)
+            ImportingItem(disable='likes' in ignore_list, func=self.import_likes),
+            ImportingItem(disable='playlists' in ignore_list, func=self.import_playlists),
+            ImportingItem(disable='albums' in ignore_list, func=self.import_albums),
+            ImportingItem(disable='artists' in ignore_list, func=self.import_artists)
         ]
 
         self.user = spotify_client.me()['id']
