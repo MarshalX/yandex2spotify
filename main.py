@@ -53,25 +53,20 @@ class Type(Enum):
     ARTIST = 'artist'
 
 
-class ImportingItem(NamedTuple):
-    disable: bool
-    func: Callable
-
-    def __call__(self):
-        return self.func()
-
-
 class Importer:
     def __init__(self, spotify_client, yandex_client, ignore_list):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
 
-        self._items_for_import = [
-            ImportingItem(disable='likes' in ignore_list, func=self.import_likes),
-            ImportingItem(disable='playlists' in ignore_list, func=self.import_playlists),
-            ImportingItem(disable='albums' in ignore_list, func=self.import_albums),
-            ImportingItem(disable='artists' in ignore_list, func=self.import_artists)
-        ]
+        self._importing_items = {
+            'likes': self.import_likes,
+            'playlists': self.import_playlists,
+            'albums': self.import_albums,
+            'artists': self.import_artists
+        }
+
+        for item in ignore_list:
+            del self._importing_items[item]
 
         self.user = spotify_client.me()['id']
         logger.info(f'User ID: {self.user}')
@@ -172,9 +167,8 @@ class Importer:
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
 
     def import_all(self):
-        for item in self._items_for_import:
-            if not item.disable:
-                item()
+        for item in self._importing_items.values():
+            item()
 
         self.print_not_imported()
 
