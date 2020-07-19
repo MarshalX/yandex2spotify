@@ -212,22 +212,22 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
-    args = parser.parse_args()
+    arguments = parser.parse_args()
 
     auth_manager = SpotifyOAuth(
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         redirect_uri=REDIRECT_URI,
         scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
-        username=args.spotify
+        username=arguments.spotify
     )
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
 
-    if args.login and args.password:
-        yandex_client_ = Client.from_credentials(args.login, args.password, captcha_callback=proc_captcha)
-    elif args.token:
-        yandex_client_ = Client(args.token)
+    if arguments.login and arguments.password:
+        yandex_client_ = Client.from_credentials(arguments.login, arguments.password, captcha_callback=proc_captcha)
+    elif arguments.token:
+        yandex_client_ = Client(arguments.token)
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
-    Importer(spotify_client_, yandex_client_, args.ignore).import_all()
+    Importer(spotify_client_, yandex_client_, arguments.ignore).import_all()
