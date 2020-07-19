@@ -60,7 +60,7 @@ def handle_spotify_exception(func):
                     if delay:
                         sleep(delay + 1)
                 else:
-                    break
+                    raise exception
     return wrapper
 
 
