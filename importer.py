@@ -1,14 +1,14 @@
 import argparse
 import logging
-from enum import Enum
 from base64 import b64encode
+from enum import Enum
 from os import path
 from time import sleep
 
 import spotipy
 from PIL import Image
-from spotipy.oauth2 import SpotifyOAuth
 from spotipy.exceptions import SpotifyException
+from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
@@ -103,7 +103,7 @@ class Importer:
 
                 logger.info(f'Importing {type_.value}: {item_name}...')
 
-                found_items = self.spotify_client.search(item_name, type=type_.value)[type_.value+'s']['items']
+                found_items = self.spotify_client.search(item_name, type=type_.value)[f'{type_.value}s']['items']
                 if len(found_items):
                     spotify_items.append(found_items[0]['id'])
                     logger.info('OK')
