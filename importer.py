@@ -1,11 +1,13 @@
 import argparse
 import logging
-from enum import Enum
 from base64 import b64encode
+from enum import Enum
 from os import path
+from time import sleep
 
 import spotipy
 from PIL import Image
+from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client
 
@@ -44,6 +46,22 @@ def png2jpg(filename):
 def encode_file_base64(filename):
     with open(filename, 'rb') as f:
         return b64encode(f.read())
+
+
+def handle_spotify_exception(func):
+    def wrapper(*args, **kwargs):
+        while True:
+            try:
+                func(*args, **kwargs)
+                break
+            except SpotifyException as exception:
+                if exception.http_status != 429:
+                    raise exception
+
+                if 'retry-after' in exception.headers:
+                    sleep(int(exception.headers['retry-after']) + 1)
+
+    return wrapper
 
 
 class Type(Enum):
@@ -85,7 +103,7 @@ class Importer:
 
                 logger.info(f'Importing {type_.value}: {item_name}...')
 
-                found_items = self.spotify_client.search(item_name, type=type_.value)[type_.value+'s']['items']
+                found_items = self.spotify_client.search(item_name, type=type_.value)[f'{type_.value}s']['items']
                 if len(found_items):
                     spotify_items.append(found_items[0]['id'])
                     logger.info('OK')
@@ -105,7 +123,7 @@ class Importer:
 
         def save_tracks_callback(importer, spotify_tracks):
             logger.info(f'Saving {len(spotify_tracks)} tracks...')
-            importer.spotify_client.current_user_saved_tracks_add(spotify_tracks)
+            handle_spotify_exception(importer.spotify_client.current_user_saved_tracks_add)(spotify_tracks)
             logger.info('OK')
 
         self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback, Type.TRACK)
@@ -132,7 +150,9 @@ class Importer:
 
             def save_tracks_callback(importer, spotify_tracks):
                 logger.info(f'Saving {len(spotify_tracks)} tracks in playlist {playlist.title}...')
-                importer.spotify_client.user_playlist_add_tracks(importer.user, spotify_playlist_id, spotify_tracks)
+                handle_spotify_exception(importer.spotify_client.user_playlist_add_tracks)(importer.user,
+                                                                                           spotify_playlist_id,
+                                                                                           spotify_tracks)
                 logger.info('OK')
 
             self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback, Type.TRACK)
@@ -146,7 +166,7 @@ class Importer:
 
         def save_albums_callback(importer, spotify_albums):
             logger.info(f'Saving {len(spotify_albums)} albums...')
-            importer.spotify_client.current_user_saved_albums_add(spotify_albums)
+            handle_spotify_exception(importer.spotify_client.current_user_saved_albums_add)(spotify_albums)
             logger.info('OK')
 
         self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback, Type.ALBUM)
@@ -160,7 +180,7 @@ class Importer:
 
         def save_artists_callback(importer, spotify_artists):
             logger.info(f'Saving {len(spotify_artists)} artists...')
-            importer.spotify_client.user_follow_artists(spotify_artists)
+            handle_spotify_exception(importer.spotify_client.user_follow_artists)(spotify_artists)
             logger.info('OK')
 
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
@@ -192,22 +212,22 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
-    args = parser.parse_args()
+    arguments = parser.parse_args()
 
     auth_manager = SpotifyOAuth(
         client_id=CLIENT_ID,
         client_secret=CLIENT_SECRET,
         redirect_uri=REDIRECT_URI,
         scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
-        username=args.spotify
+        username=arguments.spotify
     )
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
 
-    if args.login and args.password:
-        yandex_client_ = Client.from_credentials(args.login, args.password, captcha_callback=proc_captcha)
-    elif args.token:
-        yandex_client_ = Client(args.token)
+    if arguments.login and arguments.password:
+        yandex_client_ = Client.from_credentials(arguments.login, arguments.password, captcha_callback=proc_captcha)
+    elif arguments.token:
+        yandex_client_ = Client(arguments.token)
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
-    Importer(spotify_client_, yandex_client_, args.ignore).import_all()
+    Importer(spotify_client_, yandex_client_, arguments.ignore).import_all()
