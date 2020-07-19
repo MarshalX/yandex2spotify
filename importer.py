@@ -3,10 +3,12 @@ import logging
 from enum import Enum
 from base64 import b64encode
 from os import path
+from time import sleep
 
 import spotipy
 from PIL import Image
 from spotipy.oauth2 import SpotifyOAuth
+from spotipy.exceptions import SpotifyException
 from yandex_music import Client
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
@@ -44,6 +46,17 @@ def png2jpg(filename):
 def encode_file_base64(filename):
     with open(filename, 'rb') as f:
         return b64encode(f.read())
+
+
+def handle_spotify_exception(func):
+    def wrapper(*args, **kwargs):
+        while True:
+            try:
+                func(*args, **kwargs)
+                break
+            except SpotifyException as exception:
+                sleep(int(exception.headers.get('retry-after', -1))+1)
+    return wrapper
 
 
 class Type(Enum):
@@ -105,7 +118,7 @@ class Importer:
 
         def save_tracks_callback(importer, spotify_tracks):
             logger.info(f'Saving {len(spotify_tracks)} tracks...')
-            importer.spotify_client.current_user_saved_tracks_add(spotify_tracks)
+            handle_spotify_exception(importer.spotify_client.current_user_saved_tracks_add)(spotify_tracks)
             logger.info('OK')
 
         self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback, Type.TRACK)
@@ -132,7 +145,9 @@ class Importer:
 
             def save_tracks_callback(importer, spotify_tracks):
                 logger.info(f'Saving {len(spotify_tracks)} tracks in playlist {playlist.title}...')
-                importer.spotify_client.user_playlist_add_tracks(importer.user, spotify_playlist_id, spotify_tracks)
+                handle_spotify_exception(importer.spotify_client.user_playlist_add_tracks)(importer.user,
+                                                                                           spotify_playlist_id,
+                                                                                           spotify_tracks)
                 logger.info('OK')
 
             self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback, Type.TRACK)
@@ -146,7 +161,7 @@ class Importer:
 
         def save_albums_callback(importer, spotify_albums):
             logger.info(f'Saving {len(spotify_albums)} albums...')
-            importer.spotify_client.current_user_saved_albums_add(spotify_albums)
+            handle_spotify_exception(importer.spotify_client.current_user_saved_albums_add)(spotify_albums)
             logger.info('OK')
 
         self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback, Type.ALBUM)
@@ -160,7 +175,7 @@ class Importer:
 
         def save_artists_callback(importer, spotify_artists):
             logger.info(f'Saving {len(spotify_artists)} artists...')
-            importer.spotify_client.user_follow_artists(spotify_artists)
+            handle_spotify_exception(importer.spotify_client.user_follow_artists)(spotify_artists)
             logger.info('OK')
 
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
