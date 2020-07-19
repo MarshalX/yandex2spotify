@@ -53,9 +53,19 @@ class Type(Enum):
 
 
 class Importer:
-    def __init__(self, spotify_client, yandex_client):
+    def __init__(self, spotify_client, yandex_client, ignore_list):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
+
+        self._importing_items = {
+            'likes': self.import_likes,
+            'playlists': self.import_playlists,
+            'albums': self.import_albums,
+            'artists': self.import_artists
+        }
+
+        for item in ignore_list:
+            del self._importing_items[item]
 
         self.user = spotify_client.me()['id']
         logger.info(f'User ID: {self.user}')
@@ -156,10 +166,8 @@ class Importer:
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
 
     def import_all(self):
-        self.import_likes()
-        self.import_playlists()
-        self.import_albums()
-        self.import_artists()
+        for item in self._importing_items.values():
+            item()
 
         self.print_not_imported()
 
@@ -175,11 +183,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Creates a playlist for user')
     parser.add_argument('-u', '-s', '--spotify', required=True, help='Username at spotify.com')
 
-    group = parser.add_argument_group('authentication')
-    group.add_argument('-l', '--login', help='Login at music.yandex.com')
-    group.add_argument('-p', '--password', help='Password at music.yandex.com')
+    group_auth = parser.add_argument_group('authentication')
+    group_auth.add_argument('-l', '--login', help='Login at music.yandex.com')
+    group_auth.add_argument('-p', '--password', help='Password at music.yandex.com')
 
     parser.add_argument('-t', '--token', help='Token from music.yandex.com account')
+
+    parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
+                        choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
     args = parser.parse_args()
 
@@ -199,4 +210,4 @@ if __name__ == '__main__':
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
-    Importer(spotify_client_, yandex_client_).import_all()
+    Importer(spotify_client_, yandex_client_, args.ignore).import_all()
