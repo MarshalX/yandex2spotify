@@ -55,7 +55,10 @@ def handle_spotify_exception(func):
                 func(*args, **kwargs)
                 break
             except SpotifyException as exception:
-                sleep(int(exception.headers.get('retry-after', -1))+1)
+                if exception.http_status == 429:
+                    sleep(int(exception.headers.get('retry-after', -1))+1)
+                else:
+                    break
     return wrapper
 
 
