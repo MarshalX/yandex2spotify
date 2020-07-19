@@ -57,6 +57,7 @@ def handle_spotify_exception(func):
             except SpotifyException as exception:
                 if exception.http_status != 429:
                     raise exception
+
                 if 'retry-after' in exception.headers:
                     sleep(int(exception.headers['retry-after']) + 1)
 
