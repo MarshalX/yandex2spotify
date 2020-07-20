@@ -38,6 +38,7 @@ def encode_file_base64_jpeg(filename):
     img = Image.open(filename)
     if img.format != 'JPEG':
         img.convert('RGB').save(filename, 'JPEG')
+
     with open(filename, 'rb') as f:
         return b64encode(f.read())
 
