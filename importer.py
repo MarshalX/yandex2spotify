@@ -34,16 +34,11 @@ def proc_captcha(captcha):
     return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
 
-def png2jpg(filename):
-    im = Image.open(filename).convert('RGB')
+def encode_file_base64_jpeg(filename):
+    img = Image.open(filename)
+    if img.format != 'JPEG':
+        img.convert('RGB').save(filename, 'JPEG')
 
-    new_filename = path.splitext(filename)[0] + '.jpg'
-    im.save(new_filename)
-
-    return new_filename
-
-
-def encode_file_base64(filename):
     with open(filename, 'rb') as f:
         return b64encode(f.read())
 
@@ -137,11 +132,10 @@ class Importer:
             logger.info(f'Importing playlist {playlist.title}...')
 
             if playlist.cover.type == 'pic':
-                filename_png = f'{playlist.kind}-cover.png'
-                playlist.cover.download(filename_png, size='1000x1000')
+                filename = f'{playlist.kind}-cover'
+                playlist.cover.download(filename, size='400x400')
 
-                filename_jpg = png2jpg(filename_png)
-                self.spotify_client.playlist_upload_cover_image(spotify_playlist_id, encode_file_base64(filename_jpg))
+                self.spotify_client.playlist_upload_cover_image(spotify_playlist_id, encode_file_base64_jpeg(filename))
 
             self.not_imported[playlist.title] = []
 
