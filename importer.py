@@ -146,10 +146,8 @@ class Importer:
             self.not_imported[playlist.title] = []
 
             playlist_tracks = playlist.fetch_tracks()
-            if playlist.collective:
-                tracks = [track.fetch_track() for track in playlist_tracks]
-            else:
-                tracks = [track.track for track in playlist_tracks]
+            tracks = [track.fetch_track() for track in playlist_tracks] \
+                if playlist.collective else [track.track for track in playlist_tracks]
 
             def save_tracks_callback(importer, spotify_tracks):
                 logger.info(f'Saving {len(spotify_tracks)} tracks in playlist {playlist.title}...')
