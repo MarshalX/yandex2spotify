@@ -35,10 +35,12 @@ def proc_captcha(captcha):
 
 
 def png2jpg(filename):
-    im = Image.open(filename).convert('RGB')
+    img = Image.open(filename)
+    if img.format == 'JPEG':
+        return filename
 
     new_filename = path.splitext(filename)[0] + '.jpg'
-    im.save(new_filename)
+    img.convert('RGB').save(new_filename)
 
     return new_filename
 
