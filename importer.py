@@ -146,7 +146,7 @@ class Importer:
             self.not_imported[playlist.title] = []
 
             playlist_tracks = playlist.fetch_tracks()
-            tracks = self.yandex_client.tracks([playlist_track.id for playlist_track in playlist_tracks]) \
+            tracks = self.yandex_client.tracks([track.id for track in playlist_tracks]) \
                 if playlist.collective else [track.track for track in playlist_tracks]
 
             def save_tracks_callback(importer, spotify_tracks):
