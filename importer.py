@@ -88,10 +88,7 @@ class Importer:
             found_items = self.spotify_client.search(item.name, type='artist')['artists']['items']
         else:
             item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
-            if type(item) == Track:
-                type_ = 'track'
-            else:
-                type_ = 'album'
+            type_ = 'track' if type(item) == Track else 'album'
             found_items = self.spotify_client.search(f'{", ".join([artist.name for artist in item.artists])} '
                                                      f'{item.title}', type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
