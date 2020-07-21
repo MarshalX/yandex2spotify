@@ -59,12 +59,6 @@ def handle_spotify_exception(func):
     return wrapper
 
 
-class Type(Enum):
-    TRACK = 'track'
-    ALBUM = 'album'
-    ARTIST = 'artist'
-
-
 class Importer:
     def __init__(self, spotify_client, yandex_client, ignore_list):
         self.spotify_client = spotify_client
@@ -85,23 +79,33 @@ class Importer:
 
         self.not_imported = {}
 
-    def _add_items_to_spotify(self, items, not_imported_section, save_items_callback, type_):
+    def _import_item(self, item):
+        if item.name:
+            item_name = item.name
+            type_ = 'artist'
+            found_items = self.spotify_client.search(item.name, type='artist')[f'artists']['items']
+        else:
+            item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
+            if item.albums:
+                type_ = 'track'
+                found_items = self.spotify_client.search(f'{", ".join([artist.name for artist in item.artists])} '
+                                                         f'{item.title}', type='track')[f'tracks']['items']
+            else:
+                type_ = 'album'
+                found_items = self.spotify_client.search(f'{", ".join([artist.name for artist in item.artists])} '
+                                                         f'{item.title}', type='album')[f'albums']['items']
+        logger.info(f'Importing {type_}: {item_name}...')
+        return item_name, found_items[0]['id'] if len(found_items) else None
+
+    def _add_items_to_spotify(self, items, not_imported_section, save_items_callback):
         spotify_items = []
 
         items.reverse()
         for item in items:
             if item.available:
-                if type_ == Type.ARTIST:
-                    query = item_name = item.name
-                else:
-                    query = f'{", ".join([artist.name for artist in item.artists])} {item.title}'
-                    item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
-
-                logger.info(f'Importing {type_.value}: {item_name}...')
-
-                found_items = self.spotify_client.search(query, type=type_.value)[f'{type_.value}s']['items']
-                if len(found_items):
-                    spotify_items.append(found_items[0]['id'])
+                item_name, imported_item = self._import_item(item)
+                if imported_item:
+                    spotify_items.append(imported_item)
                     logger.info('OK')
                 else:
                     not_imported_section.append(item_name)
@@ -122,7 +126,7 @@ class Importer:
             handle_spotify_exception(importer.spotify_client.current_user_saved_tracks_add)(spotify_tracks)
             logger.info('OK')
 
-        self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback, Type.TRACK)
+        self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback)
 
     def import_playlists(self):
         playlists = self.yandex_client.users_playlists_list()
@@ -151,7 +155,7 @@ class Importer:
                                                                                            spotify_tracks)
                 logger.info('OK')
 
-            self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback, Type.TRACK)
+            self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback)
 
     def import_albums(self):
         self.not_imported['Albums'] = []
@@ -165,7 +169,7 @@ class Importer:
             handle_spotify_exception(importer.spotify_client.current_user_saved_albums_add)(spotify_albums)
             logger.info('OK')
 
-        self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback, Type.ALBUM)
+        self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback)
 
     def import_artists(self):
         self.not_imported['Artists'] = []
@@ -179,7 +183,7 @@ class Importer:
             handle_spotify_exception(importer.spotify_client.user_follow_artists)(spotify_artists)
             logger.info('OK')
 
-        self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
+        self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback)
 
     def import_all(self):
         for item in self._importing_items.values():
