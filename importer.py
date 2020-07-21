@@ -10,6 +10,10 @@ from PIL import Image
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client
+from yandex_music.track.track import Track
+from yandex_music.album.album import Album
+from yandex_music.artist.artist import Artist
+
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
 CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
@@ -80,13 +84,13 @@ class Importer:
         self.not_imported = {}
 
     def _import_item(self, item):
-        if hasattr(item, 'name'):
+        if type(item) == Artist:
             item_name = item.name
             type_ = 'artist'
             found_items = self.spotify_client.search(item.name, type='artist')['artists']['items']
         else:
             item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
-            if hasattr(item, 'albums'):
+            if type(item) == Track:
                 type_ = 'track'
             else:
                 type_ = 'album'
