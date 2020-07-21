@@ -80,13 +80,13 @@ class Importer:
         self.not_imported = {}
 
     def _import_item(self, item):
-        if item.name:
+        if hasattr(item, 'name'):
             item_name = item.name
             type_ = 'artist'
             found_items = self.spotify_client.search(item.name, type='artist')['artists']['items']
         else:
             item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
-            if item.albums:
+            if hasattr(item, 'albums'):
                 type_ = 'track'
             else:
                 type_ = 'album'
