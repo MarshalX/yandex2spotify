@@ -1,7 +1,6 @@
 import argparse
 import logging
 from base64 import b64encode
-from enum import Enum
 from os import path
 from time import sleep
 
@@ -11,7 +10,6 @@ from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client
 from yandex_music.track.track import Track
-from yandex_music.album.album import Album
 from yandex_music.artist.artist import Artist
 
 
