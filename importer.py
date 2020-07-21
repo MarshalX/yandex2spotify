@@ -92,13 +92,14 @@ class Importer:
         for item in items:
             if item.available:
                 if type_ == Type.ARTIST:
-                    item_name = item.name
+                    query = item_name = item.name
                 else:
+                    query = f'{", ".join([artist.name for artist in item.artists])} {item.title}'
                     item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
 
                 logger.info(f'Importing {type_.value}: {item_name}...')
 
-                found_items = self.spotify_client.search(item_name, type=type_.value)[f'{type_.value}s']['items']
+                found_items = self.spotify_client.search(query, type=type_.value)[f'{type_.value}s']['items']
                 if len(found_items):
                     spotify_items.append(found_items[0]['id'])
                     logger.info('OK')
