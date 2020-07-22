@@ -80,17 +80,16 @@ class Importer:
         self.not_imported = {}
 
     def _import_item(self, item):
-        if isinstance(item, Artist):
-            item_name = item.name
-            type_ = 'artist'
-            found_items = self.spotify_client.search(item.name, type='artist')['artists']['items']
-        else:
-            item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
-            type_ = 'track' if isinstance(item, Track) else 'album'
-            found_items = self.spotify_client.search(f'{", ".join([artist.name for artist in item.artists])} '
-                                                     f'{item.title}', type=type_)[f'{type_}s']['items']
+        type_ = item.__class__.__name__.casefold()
+        item_name = item.name if type_ == 'artist' else f'{", ".join([artist.name for artist in item.artists])} '\
+                                                        f'- {item.title}'
+        found_items = self.spotify_client.search(item_name.replace('- ', ''), type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
-        return item_name, found_items[0]['id'] if len(found_items) else None
+
+        if not len(found_items):
+            raise SpotifyException
+
+        return found_items[0]['id']
 
     def _add_items_to_spotify(self, items, not_imported_section, save_items_callback):
         spotify_items = []
@@ -98,11 +97,12 @@ class Importer:
         items.reverse()
         for item in items:
             if item.available:
-                item_name, imported_item = self._import_item(item)
-                if imported_item:
-                    spotify_items.append(imported_item)
+                try:
+                    spotify_items.append(self._import_item(item))
                     logger.info('OK')
-                else:
+                except SpotifyException:
+                    item_name = getattr(item, 'name', None) or f'{", ".join([artist.name for artist in item.artists])} '\
+                                                               f'- {item.title}'
                     not_imported_section.append(item_name)
                     logger.warning('NO')
 
