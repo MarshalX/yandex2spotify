@@ -8,9 +8,7 @@ import spotipy
 from PIL import Image
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
-from yandex_music import Client
-from yandex_music.track.track import Track
-from yandex_music.artist.artist import Artist
+from yandex_music import Client, Track, Artist
 
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
@@ -82,13 +80,13 @@ class Importer:
         self.not_imported = {}
 
     def _import_item(self, item):
-        if type(item) == Artist:
+        if isinstance(item, Artist):
             item_name = item.name
             type_ = 'artist'
             found_items = self.spotify_client.search(item.name, type='artist')['artists']['items']
         else:
             item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
-            type_ = 'track' if type(item) == Track else 'album'
+            type_ = 'track' if isinstance(item, Track) else 'album'
             found_items = self.spotify_client.search(f'{", ".join([artist.name for artist in item.artists])} '
                                                      f'{item.title}', type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
