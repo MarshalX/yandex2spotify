@@ -1,7 +1,6 @@
 import argparse
 import logging
 from base64 import b64encode
-from enum import Enum
 from os import path
 from time import sleep
 
@@ -9,7 +8,8 @@ import spotipy
 from PIL import Image
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
-from yandex_music import Client
+from yandex_music import Client, Artist
+
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
 CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
@@ -59,10 +59,9 @@ def handle_spotify_exception(func):
     return wrapper
 
 
-class Type(Enum):
-    TRACK = 'track'
-    ALBUM = 'album'
-    ARTIST = 'artist'
+class NotFoundException(SpotifyException):
+    def __init__(self, item_name):
+        self.item_name = item_name
 
 
 class Importer:
@@ -85,26 +84,29 @@ class Importer:
 
         self.not_imported = {}
 
-    def _add_items_to_spotify(self, items, not_imported_section, save_items_callback, type_):
+    def _import_item(self, item):
+        type_ = item.__class__.__name__.casefold()
+        item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} '\
+                                                               f'- {item.title}'
+        found_items = self.spotify_client.search(item_name.replace('- ', ''), type=type_)[f'{type_}s']['items']
+        logger.info(f'Importing {type_}: {item_name}...')
+
+        if not len(found_items):
+            raise NotFoundException(item_name)
+
+        return found_items[0]['id']
+
+    def _add_items_to_spotify(self, items, not_imported_section, save_items_callback):
         spotify_items = []
 
         items.reverse()
         for item in items:
             if item.available:
-                if type_ == Type.ARTIST:
-                    query = item_name = item.name
-                else:
-                    query = f'{", ".join([artist.name for artist in item.artists])} {item.title}'
-                    item_name = f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
-
-                logger.info(f'Importing {type_.value}: {item_name}...')
-
-                found_items = self.spotify_client.search(query, type=type_.value)[f'{type_.value}s']['items']
-                if len(found_items):
-                    spotify_items.append(found_items[0]['id'])
+                try:
+                    spotify_items.append(self._import_item(item))
                     logger.info('OK')
-                else:
-                    not_imported_section.append(item_name)
+                except NotFoundException as exception:
+                    not_imported_section.append(exception.item_name)
                     logger.warning('NO')
 
         for chunk in chunks(spotify_items, 50):
@@ -122,7 +124,7 @@ class Importer:
             handle_spotify_exception(importer.spotify_client.current_user_saved_tracks_add)(spotify_tracks)
             logger.info('OK')
 
-        self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback, Type.TRACK)
+        self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback)
 
     def import_playlists(self):
         playlists = self.yandex_client.users_playlists_list()
@@ -151,7 +153,7 @@ class Importer:
                                                                                            spotify_tracks)
                 logger.info('OK')
 
-            self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback, Type.TRACK)
+            self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback)
 
     def import_albums(self):
         self.not_imported['Albums'] = []
@@ -165,7 +167,7 @@ class Importer:
             handle_spotify_exception(importer.spotify_client.current_user_saved_albums_add)(spotify_albums)
             logger.info('OK')
 
-        self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback, Type.ALBUM)
+        self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback)
 
     def import_artists(self):
         self.not_imported['Artists'] = []
@@ -179,7 +181,7 @@ class Importer:
             handle_spotify_exception(importer.spotify_client.user_follow_artists)(spotify_artists)
             logger.info('OK')
 
-        self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback, Type.ARTIST)
+        self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback)
 
     def import_all(self):
         for item in self._importing_items.values():
