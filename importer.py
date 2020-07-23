@@ -8,7 +8,7 @@ import spotipy
 from PIL import Image
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
-from yandex_music import Client
+from yandex_music import Client, Artist
 
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
@@ -86,8 +86,8 @@ class Importer:
 
     def _import_item(self, item):
         type_ = item.__class__.__name__.casefold()
-        item_name = item.name if type_ == 'artist' else f'{", ".join([artist.name for artist in item.artists])} '\
-                                                        f'- {item.title}'
+        item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} '\
+                                                               f'- {item.title}'
         found_items = self.spotify_client.search(item_name.replace('- ', ''), type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
 
