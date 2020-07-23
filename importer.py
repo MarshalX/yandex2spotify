@@ -59,6 +59,11 @@ def handle_spotify_exception(func):
     return wrapper
 
 
+class NotFoundException(SpotifyException):
+    def __init__(self, item_name):
+        self.item_name = item_name
+
+
 class Importer:
     def __init__(self, spotify_client, yandex_client, ignore_list):
         self.spotify_client = spotify_client
@@ -87,7 +92,7 @@ class Importer:
         logger.info(f'Importing {type_}: {item_name}...')
 
         if not len(found_items):
-            raise SpotifyException
+            raise NotFoundException(item_name)
 
         return found_items[0]['id']
 
@@ -100,10 +105,8 @@ class Importer:
                 try:
                     spotify_items.append(self._import_item(item))
                     logger.info('OK')
-                except SpotifyException:
-                    item_name = getattr(item, 'name', None) or f'{", ".join([artist.name for artist in item.artists])} '\
-                                                               f'- {item.title}'
-                    not_imported_section.append(item_name)
+                except NotFoundException as exception:
+                    not_imported_section.append(exception.item_name)
                     logger.warning('NO')
 
         for chunk in chunks(spotify_items, 50):
