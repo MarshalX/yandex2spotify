@@ -8,7 +8,7 @@ import spotipy
 from PIL import Image
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
-from yandex_music import Client, Track, Artist
+from yandex_music import Client
 
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
