@@ -65,7 +65,7 @@ class NotFoundException(SpotifyException):
 
 
 class Importer:
-    def __init__(self, spotify_client, yandex_client, ignore_list):
+    def __init__(self, spotify_client, yandex_client, ignore_list, strict_search):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
 
@@ -79,6 +79,8 @@ class Importer:
         for item in ignore_list:
             del self._importing_items[item]
 
+        self._strict_search = strict_search
+
         self.user = spotify_client.me()['id']
         logger.info(f'User ID: {self.user}')
 
@@ -90,6 +92,10 @@ class Importer:
                                                                f'- {item.title}'
         found_items = self.spotify_client.search(item_name.replace('- ', ''), type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
+
+        if not len(found_items) and not isinstance(item, Artist) and len(item.artists) > 1 and not self._strict_search:
+            no_strict_query = f'{item.artists[0]} {item.title}'
+            found_items = self.spotify_client.search(no_strict_query, type=type_)[f'{type_}s']['items']
 
         if not len(found_items):
             raise NotFoundException(item_name)
@@ -210,6 +216,8 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
+    parser.add_argument('--strict-artists-search', help='Search for an exact match of all artists', default=False)
+
     arguments = parser.parse_args()
 
     auth_manager = SpotifyOAuth(
@@ -228,4 +236,4 @@ if __name__ == '__main__':
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
-    Importer(spotify_client_, yandex_client_, arguments.ignore).import_all()
+    Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search).import_all()
