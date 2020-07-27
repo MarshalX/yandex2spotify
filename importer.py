@@ -93,7 +93,7 @@ class Importer:
         found_items = self.spotify_client.search(item_name.replace('- ', ''), type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
 
-        if not len(found_items) and not isinstance(item, Artist) and len(item.artists) > 1 and not self._strict_search:
+        if not self._strict_search and not isinstance(item, Artist) and not len(found_items) and len(item.artists) > 1:
             no_strict_query = f'{item.artists[0]} {item.title}'
             found_items = self.spotify_client.search(no_strict_query, type=type_)[f'{type_}s']['items']
 
