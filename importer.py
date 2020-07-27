@@ -220,7 +220,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
-    parser.add_argument('--strict-artists-search', help='Search for an exact match of all artists', default=False)
+    parser.add_argument('-S', '--strict-artists-search', help='Search for an exact match of all artists', default=False)
 
     arguments = parser.parse_args()
 
