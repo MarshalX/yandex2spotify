@@ -230,7 +230,7 @@ if __name__ == '__main__':
         scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
         username=arguments.spotify
     )
-    spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
+    spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=10)
 
     if arguments.login and arguments.password:
         yandex_client_ = Client.from_credentials(arguments.login, arguments.password, captcha_callback=proc_captcha)
