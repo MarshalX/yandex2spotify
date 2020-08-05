@@ -59,7 +59,7 @@ def handle_spotify_exception(func):
                 if 'retry-after' in exception.headers:
                     sleep(int(exception.headers['retry-after']) + 1)
             except ReadTimeout as exception:
-                if attempt > MAX_ATTEMPTS:
+                if retry > MAX_RETRIES:
                     logger.info(f'Read timed out. (retry={retry}) Max retries reached.')
                     raise exception
                 logger.info(f'Read timed out. (retry={retry}) Trying again...')
@@ -229,6 +229,8 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
+    parser.add_argument('-T', '--timeout', help='Request timeout for spotify', type=float, default=10)
+
     parser.add_argument('-S', '--strict-artists-search', help='Search for an exact match of all artists', default=False)
 
     arguments = parser.parse_args()
@@ -240,7 +242,7 @@ if __name__ == '__main__':
         scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
         username=arguments.spotify
     )
-    spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=10)
+    spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
 
     if arguments.login and arguments.password:
         yandex_client_ = Client.from_credentials(arguments.login, arguments.password, captcha_callback=proc_captcha)
