@@ -59,10 +59,11 @@ def handle_spotify_exception(func):
                 if 'retry-after' in exception.headers:
                     sleep(int(exception.headers['retry-after']) + 1)
             except ReadTimeout as exception:
+                logger.info(f'Read timed out. (retry={retry})')
                 if retry > MAX_RETRIES:
-                    logger.info(f'Read timed out. (retry={retry}) Max retries reached.')
+                    logger.info('Max retries reached.')
                     raise exception
-                logger.info(f'Read timed out. (retry={retry}) Trying again...')
+                logger.info('Trying again...')
                 retry += 1
 
 
