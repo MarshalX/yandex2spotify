@@ -7,6 +7,7 @@ from time import sleep
 import spotipy
 from PIL import Image
 from spotipy.exceptions import SpotifyException
+from requests.exceptions import ReadTimeout
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client, Artist
 
@@ -14,6 +15,7 @@ from yandex_music import Client, Artist
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
 CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
 REDIRECT_URI = 'https://open.spotify.com'
+MAX_RETRIES = 5
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,9 +47,10 @@ def encode_file_base64_jpeg(filename):
 
 def handle_spotify_exception(func):
     def wrapper(*args, **kwargs):
+        retry = 1
         while True:
             try:
-                func(*args, **kwargs)
+                return func(*args, **kwargs)
                 break
             except SpotifyException as exception:
                 if exception.http_status != 429:
@@ -55,6 +58,13 @@ def handle_spotify_exception(func):
 
                 if 'retry-after' in exception.headers:
                     sleep(int(exception.headers['retry-after']) + 1)
+            except ReadTimeout as exception:
+                if attempt > MAX_ATTEMPTS:
+                    logger.info(f'Read timed out. (retry={retry}) Max retries reached.')
+                    raise exception
+                logger.info(f'Read timed out. (retry={retry}) Trying again...')
+                retry += 1
+
 
     return wrapper
 
@@ -81,7 +91,7 @@ class Importer:
 
         self._strict_search = strict_search
 
-        self.user = spotify_client.me()['id']
+        self.user = handle_spotify_exception(spotify_client.me)()['id']
         logger.info(f'User ID: {self.user}')
 
         self.not_imported = {}
@@ -91,12 +101,12 @@ class Importer:
         item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} '\
                                                                f'- {item.title}'
         query = item_name.replace('- ', '')
-        found_items = self.spotify_client.search(query, type=type_)[f'{type_}s']['items']
+        found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
 
         if not self._strict_search and not isinstance(item, Artist) and not len(found_items) and len(item.artists) > 1:
             query = f'{item.artists[0]} {item.title}'
-            found_items = self.spotify_client.search(query, type=type_)[f'{type_}s']['items']
+            found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
 
         logger.info(f'Searching "{query}"...')
 
@@ -138,7 +148,7 @@ class Importer:
     def import_playlists(self):
         playlists = self.yandex_client.users_playlists_list()
         for playlist in playlists:
-            spotify_playlist = self.spotify_client.user_playlist_create(self.user, playlist.title)
+            spotify_playlist = handle_spotify_exception(self.spotify_client.user_playlist_create)(self.user, playlist.title)
             spotify_playlist_id = spotify_playlist['id']
 
             logger.info(f'Importing playlist {playlist.title}...')
@@ -147,7 +157,7 @@ class Importer:
                 filename = f'{playlist.kind}-cover'
                 playlist.cover.download(filename, size='400x400')
 
-                self.spotify_client.playlist_upload_cover_image(spotify_playlist_id, encode_file_base64_jpeg(filename))
+                handle_spotify_exception(self.spotify_client.playlist_upload_cover_image)(spotify_playlist_id, encode_file_base64_jpeg(filename))
 
             self.not_imported[playlist.title] = []
 
