@@ -1,5 +1,6 @@
 import argparse
 import logging
+import requests
 from base64 import b64encode
 from os import path
 from time import sleep
@@ -29,7 +30,8 @@ def chunks(lst, n):
 
 
 def proc_captcha(captcha):
-    captcha.download('captcha.gif')
+    response = requests.get(captcha, allow_redirects=True)
+    open('captcha.gif', 'wb').write(response.content)
     Image.open('captcha.gif').show()
     return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
