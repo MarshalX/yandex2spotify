@@ -1,21 +1,19 @@
 import argparse
 import logging
-import requests
-from base64 import b64encode
-from os import path
 from time import sleep
 
 import spotipy
-from PIL import Image
-from requests.exceptions import ReadTimeout
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client, Artist
 
+from utils import chunks, encode_file_base64_jpeg, proc_captcha
+
+
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
 CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
 REDIRECT_URI = 'https://open.spotify.com'
-MAX_REQUEST_RETRIES = 5
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,34 +22,11 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
-
-
-def proc_captcha(captcha):
-    response = requests.get(captcha, allow_redirects=True)
-    open('captcha.gif', 'wb').write(response.content)
-    Image.open('captcha.gif').show()
-    return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
-
-
-def encode_file_base64_jpeg(filename):
-    img = Image.open(filename)
-    if img.format != 'JPEG':
-        img.convert('RGB').save(filename, 'JPEG')
-
-    with open(filename, 'rb') as f:
-        return b64encode(f.read())
-
-
 def handle_spotify_exception(func):
     def wrapper(*args, **kwargs):
-        retry = 1
         while True:
             try:
-                return func(*args, **kwargs)
+                func(*args, **kwargs)
                 break
             except SpotifyException as exception:
                 if exception.http_status != 429:
@@ -59,15 +34,6 @@ def handle_spotify_exception(func):
 
                 if 'retry-after' in exception.headers:
                     sleep(int(exception.headers['retry-after']) + 1)
-            except ReadTimeout as exception:
-                logger.info(f'Read timed out. Retrying #{retry}...')
-
-                if retry > MAX_REQUEST_RETRIES:
-                    logger.info('Max retries reached.')
-                    raise exception
-
-                logger.info('Trying again...')
-                retry += 1
 
     return wrapper
 
@@ -77,7 +43,7 @@ class NotFoundException(SpotifyException):
         self.item_name = item_name
 
 
-class Importer:
+class Yandex2Spotify:
     def __init__(self, spotify_client, yandex_client, ignore_list, strict_search):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
@@ -94,7 +60,7 @@ class Importer:
 
         self._strict_search = strict_search
 
-        self.user = handle_spotify_exception(spotify_client.me)()['id']
+        self.user = spotify_client.me()['id']
         logger.info(f'User ID: {self.user}')
 
         self.not_imported = {}
@@ -104,12 +70,12 @@ class Importer:
         item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} '\
                                                                f'- {item.title}'
         query = item_name.replace('- ', '')
-        found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
+        found_items = self.spotify_client.search(query, type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
 
         if not self._strict_search and not isinstance(item, Artist) and not len(found_items) and len(item.artists) > 1:
-            query = f'{item.artists[0]} {item.title}'
-            found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
+            query = f'{item.artists[0].name} {item.title}'
+            found_items = self.spotify_client.search(query, type=type_)[f'{type_}s']['items']
 
         logger.info(f'Searching "{query}"...')
 
@@ -151,7 +117,7 @@ class Importer:
     def import_playlists(self):
         playlists = self.yandex_client.users_playlists_list()
         for playlist in playlists:
-            spotify_playlist = handle_spotify_exception(self.spotify_client.user_playlist_create)(self.user, playlist.title)
+            spotify_playlist = self.spotify_client.user_playlist_create(self.user, playlist.title)
             spotify_playlist_id = spotify_playlist['id']
 
             logger.info(f'Importing playlist {playlist.title}...')
@@ -160,7 +126,7 @@ class Importer:
                 filename = f'{playlist.kind}-cover'
                 playlist.cover.download(filename, size='400x400')
 
-                handle_spotify_exception(self.spotify_client.playlist_upload_cover_image)(spotify_playlist_id, encode_file_base64_jpeg(filename))
+                self.spotify_client.playlist_upload_cover_image(spotify_playlist_id, encode_file_base64_jpeg(filename))
 
             self.not_imported[playlist.title] = []
 
@@ -232,8 +198,6 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
 
-    parser.add_argument('-T', '--timeout', help='Request timeout for spotify', type=float, default=10)
-
     parser.add_argument('-S', '--strict-artists-search', help='Search for an exact match of all artists', default=False)
 
     arguments = parser.parse_args()
@@ -245,7 +209,7 @@ if __name__ == '__main__':
         scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
         username=arguments.spotify
     )
-    spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
+    spotify_client_ = spotipy.Spotify(auth_manager=auth_manager)
 
     if arguments.login and arguments.password:
         yandex_client_ = Client.from_credentials(arguments.login, arguments.password, captcha_callback=proc_captcha)
@@ -254,4 +218,4 @@ if __name__ == '__main__':
     else:
         raise RuntimeError('Provide yandex account conditionals or token!')
 
-    Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search).import_all()
+    Yandex2Spotify(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search).import_all()
