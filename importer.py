@@ -7,10 +7,11 @@ from time import sleep
 
 import spotipy
 from PIL import Image
-from requests.exceptions import ReadTimeout
-from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client, Artist
+
+from utils import chunks, proc_captcha, encode_file_base64_jpeg, spotify_except
+from exceptions import NotFoundException
 
 CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
 CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
@@ -24,60 +25,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def chunks(lst, n):
-    """Yield successive n-sized chunks from lst."""
-    for i in range(0, len(lst), n):
-        yield lst[i:i + n]
-
-
-def proc_captcha(captcha):
-    response = requests.get(captcha, allow_redirects=True)
-    open('captcha.gif', 'wb').write(response.content)
-    Image.open('captcha.gif').show()
-    return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
-
-
-def encode_file_base64_jpeg(filename):
-    img = Image.open(filename)
-    if img.format != 'JPEG':
-        img.convert('RGB').save(filename, 'JPEG')
-
-    with open(filename, 'rb') as f:
-        return b64encode(f.read())
-
-
-def handle_spotify_exception(func):
-    def wrapper(*args, **kwargs):
-        retry = 1
-        while True:
-            try:
-                return func(*args, **kwargs)
-                break
-            except SpotifyException as exception:
-                if exception.http_status != 429:
-                    raise exception
-
-                if 'retry-after' in exception.headers:
-                    sleep(int(exception.headers['retry-after']) + 1)
-            except ReadTimeout as exception:
-                logger.info(f'Read timed out. Retrying #{retry}...')
-
-                if retry > MAX_REQUEST_RETRIES:
-                    logger.info('Max retries reached.')
-                    raise exception
-
-                logger.info('Trying again...')
-                retry += 1
-
-    return wrapper
-
-
-class NotFoundException(SpotifyException):
-    def __init__(self, item_name):
-        self.item_name = item_name
-
-
 class Importer:
+    @spotify_except
     def __init__(self, spotify_client, yandex_client, ignore_list, strict_search):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
@@ -94,48 +43,46 @@ class Importer:
 
         self._strict_search = strict_search
 
-        self.user = handle_spotify_exception(spotify_client.me)()['id']
+        self.user = spotify_client.me()['id']
         logger.info(f'User ID: {self.user}')
 
         self.not_imported = {}
 
+    @spotify_except
     def _import_item(self, item):
         type_ = item.__class__.__name__.casefold()
         item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} '\
                                                                f'- {item.title}'
         query = item_name.replace('- ', '')
-        found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
+        found_items = self.spotify_client.search(query, type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
 
         if not self._strict_search and not isinstance(item, Artist) and not len(found_items) and len(item.artists) > 1:
-            query = f'{item.artists[0]} {item.title}'
-            found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
+            query = f'{item.artists[0].name} {item.title}'
+            found_items = self.spotify_client.search(query, type=type_)[f'{type_}s']['items']
 
         logger.info(f'Searching "{query}"...')
 
         if not len(found_items):
-            raise NotFoundException(item_name)
+            raise NotFoundException(type_, item_name)
 
         return found_items[0]['id']
 
-    def _add_items_to_spotify(self, items, not_imported_section, save_items_callback):
+    @spotify_except
+    def _add_items_to_spotify(self, items, save_items_callback):
         spotify_items = []
 
         items.reverse()
         for item in items:
             if item.available:
-                try:
-                    spotify_items.append(self._import_item(item))
-                    logger.info('OK')
-                except NotFoundException as exception:
-                    not_imported_section.append(exception.item_name)
-                    logger.warning('NO')
-
+                spotify_items.append(self._import_item(item))
+                logger.info('OK')
         for chunk in chunks(spotify_items, 50):
             save_items_callback(self, chunk)
 
+    @spotify_except
     def import_likes(self):
-        self.not_imported['Likes'] = []
+        self.not_imported['track'] = self.not_imported.get('track', [])
 
         likes_tracks = self.yandex_client.users_likes_tracks().tracks
         tracks = self.yandex_client.tracks([f'{track.id}:{track.album_id}' for track in likes_tracks if track.album_id])
@@ -143,15 +90,16 @@ class Importer:
 
         def save_tracks_callback(importer, spotify_tracks):
             logger.info(f'Saving {len(spotify_tracks)} tracks...')
-            handle_spotify_exception(importer.spotify_client.current_user_saved_tracks_add)(spotify_tracks)
+            importer.spotify_client.current_user_saved_tracks_add(spotify_tracks)
             logger.info('OK')
 
-        self._add_items_to_spotify(tracks, self.not_imported['Likes'], save_tracks_callback)
+        self._add_items_to_spotify(tracks, save_tracks_callback)
 
+    @spotify_except
     def import_playlists(self):
         playlists = self.yandex_client.users_playlists_list()
         for playlist in playlists:
-            spotify_playlist = handle_spotify_exception(self.spotify_client.user_playlist_create)(self.user, playlist.title)
+            spotify_playlist = self.spotify_client.user_playlist_create(self.user, playlist.title)
             spotify_playlist_id = spotify_playlist['id']
 
             logger.info(f'Importing playlist {playlist.title}...')
@@ -160,9 +108,9 @@ class Importer:
                 filename = f'{playlist.kind}-cover'
                 playlist.cover.download(filename, size='400x400')
 
-                handle_spotify_exception(self.spotify_client.playlist_upload_cover_image)(spotify_playlist_id, encode_file_base64_jpeg(filename))
+                self.spotify_client.playlist_upload_cover_image(spotify_playlist_id, encode_file_base64_jpeg(filename))
 
-            self.not_imported[playlist.title] = []
+            self.not_imported['track'] = self.not_imported.get('track', [])
 
             playlist_tracks = playlist.fetch_tracks()
             tracks = self.yandex_client.tracks([track.track_id for track in playlist_tracks if track.album_id]) \
@@ -170,15 +118,16 @@ class Importer:
 
             def save_tracks_callback(importer, spotify_tracks):
                 logger.info(f'Saving {len(spotify_tracks)} tracks in playlist {playlist.title}...')
-                handle_spotify_exception(importer.spotify_client.user_playlist_add_tracks)(importer.user,
-                                                                                           spotify_playlist_id,
-                                                                                           spotify_tracks)
+                importer.spotify_client.user_playlist_add_tracks(importer.user,
+                                                                 spotify_playlist_id,
+                                                                 spotify_tracks)
                 logger.info('OK')
 
-            self._add_items_to_spotify(tracks, self.not_imported[playlist.title], save_tracks_callback)
+            self._add_items_to_spotify(tracks, save_tracks_callback)
 
+    @spotify_except
     def import_albums(self):
-        self.not_imported['Albums'] = []
+        self.not_imported['album'] = self.not_imported.get('album', [])
 
         likes_albums = self.yandex_client.users_likes_albums()
         albums = [album.album for album in likes_albums]
@@ -186,13 +135,14 @@ class Importer:
 
         def save_albums_callback(importer, spotify_albums):
             logger.info(f'Saving {len(spotify_albums)} albums...')
-            handle_spotify_exception(importer.spotify_client.current_user_saved_albums_add)(spotify_albums)
+            importer.spotify_client.current_user_saved_albums_add(spotify_albums)
             logger.info('OK')
 
-        self._add_items_to_spotify(albums, self.not_imported['Albums'], save_albums_callback)
+        self._add_items_to_spotify(albums, save_albums_callback)
 
+    @spotify_except
     def import_artists(self):
-        self.not_imported['Artists'] = []
+        self.not_imported['artist'] = self.not_imported.get('artist', [])
 
         likes_artists = self.yandex_client.users_likes_artists()
         artists = [artist.artist for artist in likes_artists]
@@ -200,10 +150,10 @@ class Importer:
 
         def save_artists_callback(importer, spotify_artists):
             logger.info(f'Saving {len(spotify_artists)} artists...')
-            handle_spotify_exception(importer.spotify_client.user_follow_artists)(spotify_artists)
+            importer.spotify_client.user_follow_artists(spotify_artists)
             logger.info('OK')
 
-        self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback)
+        self._add_items_to_spotify(artists, save_artists_callback)
 
     def import_all(self):
         for item in self._importing_items.values():
@@ -212,11 +162,13 @@ class Importer:
         self.print_not_imported()
 
     def print_not_imported(self):
-        logger.error('Not imported items:')
-        for section, items in self.not_imported.items():
-            logger.info(f'{section}:')
-            for item in items:
-                logger.info(item)
+        if any(self.not_imported.values()):
+            logger.error('Not imported items:')
+            for section, items in self.not_imported.items():
+                if items:
+                    logger.info(f'{section}:')
+                    for item in items:
+                        logger.info(item)
 
 
 if __name__ == '__main__':
