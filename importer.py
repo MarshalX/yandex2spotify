@@ -1,6 +1,5 @@
 import argparse
 import logging
-import requests
 from base64 import b64encode
 from os import path
 from time import sleep
@@ -28,13 +27,6 @@ def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
-
-
-def proc_captcha(captcha):
-    response = requests.get(captcha, allow_redirects=True)
-    open('captcha.gif', 'wb').write(response.content)
-    Image.open('captcha.gif').show()
-    return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
 
 def encode_file_base64_jpeg(filename):
@@ -223,11 +215,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Creates a playlist for user')
     parser.add_argument('-u', '-s', '--spotify', required=True, help='Username at spotify.com')
 
-    group_auth = parser.add_argument_group('authentication')
-    group_auth.add_argument('-l', '--login', help='Login at music.yandex.com')
-    group_auth.add_argument('-p', '--password', help='Password at music.yandex.com')
-
-    parser.add_argument('-t', '--token', help='Token from music.yandex.com account')
+    parser.add_argument('-t', '--token', required=True, help='Token from music.yandex.com account')
 
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
@@ -247,11 +235,6 @@ if __name__ == '__main__':
     )
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
 
-    if arguments.login and arguments.password:
-        yandex_client_ = Client.from_credentials(arguments.login, arguments.password, captcha_callback=proc_captcha)
-    elif arguments.token:
-        yandex_client_ = Client(arguments.token)
-    else:
-        raise RuntimeError('Provide yandex account conditionals or token!')
-
+    yandex_client_ = Client(arguments.token)
+    yandex_client_.init()
     Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search).import_all()
