@@ -1,18 +1,25 @@
 # yandex2spotify
-Simple Python script, that allow to import favorite tracks, playlists, albums and artists from Yandex.Music to Spotify
 
-## Install requirments
+A simple Python script that allows to import favorite tracks, playlists, albums, and artists from Yandex.Music to Spotify
+
+## Installation
+
 ```bash
 pip3 install -r requirements.txt
 ```
 
 ## Usage
-1) Using token:
+
+1) Obtain a Yandex.Music OAuth token.[^1]
+
+2) Run the script:
 ```bash
 python3 importer.py -u <spotify_username> -t <yandex_token>
 ```
 
-2) If you don't want to import some items (likes, playlists, albums, artists) you can exclude them by specifying ignore argument, for example:
+3) If you don't want to import some items (likes, playlists, albums, artists) you can exclude them by specifying the `--ignore` argument, for example:
 ```bash
 python3 importer.py -u <spotify_username> -t <yandex_token> -i playlists albums artists
 ```
+
+[^1]: Since it's impossible to register an OAuth application with Yandex.Music access scope, you have to [reuse the token from music.yandex.ru itself](https://github.com/MarshalX/yandex-music-api/discussions/513).
