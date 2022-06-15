@@ -11,8 +11,6 @@ from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client, Artist
 
-CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
-CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
 REDIRECT_URI = 'https://open.spotify.com'
 MAX_REQUEST_RETRIES = 5
 
@@ -215,6 +213,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Creates a playlist for user')
     parser.add_argument('-u', '-s', '--spotify', required=True, help='Username at spotify.com')
 
+    spotify_oauth = parser.add_argument_group('spotify_oauth')
+    spotify_oauth.add_argument('--id', required=True, help='Client ID of your Spotify app')
+    spotify_oauth.add_argument('--secret', required=True, help='Client Secret of your Spotify app')
+
     parser.add_argument('-t', '--token', required=True, help='Token from music.yandex.com account')
 
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
@@ -227,8 +229,8 @@ if __name__ == '__main__':
     arguments = parser.parse_args()
 
     auth_manager = SpotifyOAuth(
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
+        client_id=arguments.id,
+        client_secret=arguments.secret,
         redirect_uri=REDIRECT_URI,
         scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
         username=arguments.spotify
