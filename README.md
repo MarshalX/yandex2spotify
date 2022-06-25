@@ -10,7 +10,7 @@ pip3 install -r requirements.txt
 
 ## Usage
 
-0) [Register a dummy Spotify OAuth application](https://developer.spotify.com/dashboard) and add `https://open.spotify.com` as the callback URI.
+0) [Register a dummy Spotify OAuth application](https://developer.spotify.com/dashboard) and **add `https://open.spotify.com` as a callback URI** in its settings.
 
 1) Obtain a Yandex.Music OAuth token.[^1]
 
