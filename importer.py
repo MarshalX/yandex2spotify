@@ -1,6 +1,5 @@
 import argparse
 import logging
-import requests
 from base64 import b64encode
 from os import path
 from time import sleep
@@ -12,8 +11,6 @@ from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client, Artist
 
-CLIENT_ID = '9b3b6782c67a4a8b9c5a6800e09edb27'
-CLIENT_SECRET = '7809b5851f1d4219963a3c0735fd5bea'
 REDIRECT_URI = 'https://open.spotify.com'
 MAX_REQUEST_RETRIES = 5
 
@@ -28,13 +25,6 @@ def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
-
-
-def proc_captcha(captcha):
-    response = requests.get(captcha, allow_redirects=True)
-    open('captcha.gif', 'wb').write(response.content)
-    Image.open('captcha.gif').show()
-    return input(f'Input number from "captcha.gif" ({path.abspath("captcha.gif")}):')
 
 
 def encode_file_base64_jpeg(filename):
@@ -223,11 +213,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Creates a playlist for user')
     parser.add_argument('-u', '-s', '--spotify', required=True, help='Username at spotify.com')
 
-    group_auth = parser.add_argument_group('authentication')
-    group_auth.add_argument('-l', '--login', help='Login at music.yandex.com')
-    group_auth.add_argument('-p', '--password', help='Password at music.yandex.com')
+    spotify_oauth = parser.add_argument_group('spotify_oauth')
+    spotify_oauth.add_argument('--id', required=True, help='Client ID of your Spotify app')
+    spotify_oauth.add_argument('--secret', required=True, help='Client Secret of your Spotify app')
 
-    parser.add_argument('-t', '--token', help='Token from music.yandex.com account')
+    parser.add_argument('-t', '--token', required=True, help='Token from music.yandex.com account')
 
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
@@ -239,19 +229,14 @@ if __name__ == '__main__':
     arguments = parser.parse_args()
 
     auth_manager = SpotifyOAuth(
-        client_id=CLIENT_ID,
-        client_secret=CLIENT_SECRET,
+        client_id=arguments.id,
+        client_secret=arguments.secret,
         redirect_uri=REDIRECT_URI,
         scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
         username=arguments.spotify
     )
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
 
-    if arguments.login and arguments.password:
-        yandex_client_ = Client.from_credentials(arguments.login, arguments.password, captcha_callback=proc_captcha)
-    elif arguments.token:
-        yandex_client_ = Client(arguments.token)
-    else:
-        raise RuntimeError('Provide yandex account conditionals or token!')
-
+    yandex_client_ = Client(arguments.token)
+    yandex_client_.init()
     Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search).import_all()
