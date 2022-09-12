@@ -120,7 +120,7 @@ class Importer:
                 except NotFoundException as exception:
                     not_imported_section.append(exception.item_name)
                     logger.warning('NO')
-                except SpotifyException as exception:
+                except SpotifyException:
                     not_imported_section.append(item.title)
                     logger.warning('NO')
 
