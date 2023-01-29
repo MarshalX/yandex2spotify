@@ -24,4 +24,8 @@ python3 importer.py --id <spotify_client_id> --secret <spotify_client_secret> -u
 python3 importer.py --id <spotify_client_id> --secret <spotify_client_secret> -u <spotify_username> -t <yandex_token> -i playlists albums artists
 ```
 
+4) After launch, script will open the web browser with authorization dialog. After finishing authorization, you need to copy resulting URL, close browser tab and paste that URL after `Enter the URL you were redirected to:`
+
+5) If authorization succeed - you will see log of import process.
+
 [^1]: Since it's impossible to register an OAuth application with Yandex.Music access scope, you have to [reuse the token from music.yandex.ru itself](https://github.com/MarshalX/yandex-music-api/discussions/513).
