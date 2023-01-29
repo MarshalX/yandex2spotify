@@ -236,7 +236,8 @@ if __name__ == '__main__':
         client_secret=arguments.secret,
         redirect_uri=REDIRECT_URI,
         scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
-        username=arguments.spotify
+        username=arguments.spotify,
+        cache_path='cache.txt'
     )
     spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
 
