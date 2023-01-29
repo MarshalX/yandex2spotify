@@ -120,6 +120,9 @@ class Importer:
                 except NotFoundException as exception:
                     not_imported_section.append(exception.item_name)
                     logger.warning('NO')
+                except SpotifyException:
+                    not_imported_section.append(item.title)
+                    logger.warning('NO')
 
         for chunk in chunks(spotify_items, 50):
             save_items_callback(self, chunk)
