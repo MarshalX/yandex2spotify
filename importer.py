@@ -93,6 +93,12 @@ class Importer:
         type_ = item.__class__.__name__.casefold()
         item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} '\
                                                                f'- {item.title}'
+                                                               
+        #A workaround for when track name is too long (100+ characters) there is an exception happening because spotify API can not process it.
+        if len(item_name)>100:
+            item_name = item_name[:100]
+            logger.info('Name too long... Trimming to 100 characters. May affect search accuracy');
+            
         query = item_name.replace('- ', '')
         found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
