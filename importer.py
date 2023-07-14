@@ -292,11 +292,16 @@ if __name__ == '__main__':
             username=arguments.spotify,
             cache_path='cache.txt'
         )
-        spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
 
-        yandex_client_ = Client(arguments.token)
-        yandex_client_.init()
+        spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
+        yandex_client_ = None
+
+        if arguments.token:
+            yandex_client_ = Client(arguments.token)
+            yandex_client_.init()
+
         importer = Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search)
+
         if arguments.json:
             importer.import_from_json(arguments.json)
         else:
