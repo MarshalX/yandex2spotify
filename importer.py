@@ -215,9 +215,9 @@ class Importer:
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback)
 
     def import_all(self):
-        for item in self._importing_items.values():
-            item()
-
+        if self.yandex_client is not None:
+            for item in self._importing_items.values():
+                item()
         self.print_not_imported()
 
     def print_not_imported(self):
@@ -303,7 +303,7 @@ if __name__ == '__main__':
         importer = Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search)
 
         if arguments.json:
-            importer.import_from_json(arguments.json)
+            importer.import_from_json(arguments.json_path)
         else:
             importer.import_all()
     except Exception as e:
