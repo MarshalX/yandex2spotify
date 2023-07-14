@@ -215,9 +215,9 @@ class Importer:
         self._add_items_to_spotify(artists, self.not_imported['Artists'], save_artists_callback)
 
     def import_all(self):
-        if self.yandex_client is not None:
-            for item in self._importing_items.values():
-                item()
+        for item in self._importing_items.values():
+            item()
+            
         self.print_not_imported()
 
     def print_not_imported(self):
@@ -293,6 +293,9 @@ if __name__ == '__main__':
             cache_path='cache.txt'
         )
 
+        if arguments.token is None and arguments.json_path is None:
+            raise ValueError('Either the -t (token) or -j (json_path) argument must be specified.')
+
         spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
         yandex_client_ = None
 
@@ -302,7 +305,7 @@ if __name__ == '__main__':
 
         importer = Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search)
 
-        if arguments.json:
+        if arguments.json_path:
             importer.import_from_json(arguments.json_path)
         else:
             importer.import_all()
