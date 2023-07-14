@@ -28,7 +28,7 @@ python3 importer.py --id <spotify_client_id> --secret <spotify_client_secret> -u
 
 5) If authorization succeed - you will see log of import process.
 
-JSON import is also available. Use `--json` or `-j` to specify path to JSON file in format described below.
+JSON import is also available. Use `--json-path` or `-j` to specify path to JSON file in format described below.
 ```
 [
 	{
