@@ -290,7 +290,6 @@ if __name__ == '__main__':
             redirect_uri=REDIRECT_URI,
             scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
             username=arguments.spotify,
-            cache_path='cache.txt'
         )
 
         if arguments.token is None and arguments.json_path is None:
