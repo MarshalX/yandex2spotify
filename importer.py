@@ -1,3 +1,4 @@
+import json
 import argparse
 import logging
 from base64 import b64encode
@@ -90,21 +91,30 @@ class Importer:
         self.not_imported = {}
 
     def _import_item(self, item):
-        type_ = item.__class__.__name__.casefold()
-        item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} '\
-                                                               f'- {item.title}'
-                                                               
-        #A workaround for when track name is too long (100+ characters) there is an exception happening because spotify API can not process it.
-        if len(item_name)>100:
-            item_name = item_name[:100]
-            logger.info('Name too long... Trimming to 100 characters. May affect search accuracy');
-            
-        query = item_name.replace('- ', '')
+        # if item is a string, it is a query from the JSON file
+        if isinstance(item, str):
+            query = item
+            item_name = item
+            type_ = 'track'  # Default type for string items
+            artists = []  # Default artists for string items
+        # else it is an object from Yandex
+        else:
+            type_ = item.__class__.__name__.casefold()
+            item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
+            artists = item.artists  # Artists for Yandex items
+
+            # A workaround for when track name is too long (100+ characters) there is an exception happening because spotify API can not process it.
+            if len(item_name) > 100:
+                item_name = item_name[:100]
+                logger.info('Name too long... Trimming to 100 characters. May affect search accuracy')
+
+            query = item_name.replace('- ', '')
+
         found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
 
-        if not self._strict_search and not isinstance(item, Artist) and not len(found_items) and len(item.artists) > 1:
-            query = f'{item.artists[0]} {item.title}'
+        if not self._strict_search and not isinstance(item, Artist) and not len(found_items) and len(artists) > 1:
+            query = f'{artists[0]} {item.title}'
             found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
 
         logger.info(f'Searching "{query}"...')
@@ -207,7 +217,7 @@ class Importer:
     def import_all(self):
         for item in self._importing_items.values():
             item()
-
+            
         self.print_not_imported()
 
     def print_not_imported(self):
@@ -216,6 +226,40 @@ class Importer:
             logger.info(f'{section}:')
             for item in items:
                 logger.info(item)
+    
+    def import_from_json(self, file_path):
+        with open(file_path, 'r', encoding='utf-8') as file:
+            tracks = json.load(file)
+
+        spotify_tracks = []
+        not_imported = []
+
+        for track in tracks:
+            try:
+                query = f'{track["artist"]} {track["track"]}'
+                spotify_track_id = self._import_item(query)
+                spotify_tracks.append(spotify_track_id)
+                logger.info('OK')
+            except NotFoundException as exception:
+                not_imported.append(exception.item_name)
+                logger.warning('NO')
+            except SpotifyException:
+                not_imported.append(query)
+                logger.warning('NO')
+
+        # Create a new playlist
+        playlist_name = 'Imported from JSON'
+        playlist = handle_spotify_exception(self.spotify_client.user_playlist_create)(self.user, playlist_name)
+
+        # Add tracks to the new playlist
+        for chunk in chunks(spotify_tracks, 50):
+            logger.info(f'Saving {len(chunk)} tracks...')
+            handle_spotify_exception(self.spotify_client.user_playlist_add_tracks)(self.user, playlist['id'], chunk)
+            logger.info('OK')
+
+        logger.error('Not imported tracks:')
+        for track in not_imported:
+            logger.info(track)
 
 
 if __name__ == '__main__':
@@ -226,7 +270,7 @@ if __name__ == '__main__':
     spotify_oauth.add_argument('--id', required=True, help='Client ID of your Spotify app')
     spotify_oauth.add_argument('--secret', required=True, help='Client Secret of your Spotify app')
 
-    parser.add_argument('-t', '--token', required=True, help='Token from music.yandex.com account')
+    parser.add_argument('-t', '--token', help='Token from music.yandex.com account')
 
     parser.add_argument('-i', '--ignore', nargs='+', help='Don\'t import some items',
                         choices=['likes', 'playlists', 'albums', 'artists'], default=[])
@@ -235,18 +279,35 @@ if __name__ == '__main__':
 
     parser.add_argument('-S', '--strict-artists-search', help='Search for an exact match of all artists', default=False)
 
+    parser.add_argument('-j', '--json-path', help='JSON file to import tracks from')
+
     arguments = parser.parse_args()
 
-    auth_manager = SpotifyOAuth(
-        client_id=arguments.id,
-        client_secret=arguments.secret,
-        redirect_uri=REDIRECT_URI,
-        scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
-        username=arguments.spotify,
-        cache_path='cache.txt'
-    )
-    spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
+    try:
+        auth_manager = SpotifyOAuth(
+            client_id=arguments.id,
+            client_secret=arguments.secret,
+            redirect_uri=REDIRECT_URI,
+            scope='playlist-modify-public, user-library-modify, user-follow-modify, ugc-image-upload',
+            username=arguments.spotify,
+            cache_path='cache.txt'
+        )
 
-    yandex_client_ = Client(arguments.token)
-    yandex_client_.init()
-    Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search).import_all()
+        if arguments.token is None and arguments.json_path is None:
+            raise ValueError('Either the -t (token) or -j (json_path) argument must be specified.')
+
+        spotify_client_ = spotipy.Spotify(auth_manager=auth_manager, requests_timeout=arguments.timeout)
+        yandex_client_ = None
+
+        if arguments.token:
+            yandex_client_ = Client(arguments.token)
+            yandex_client_.init()
+
+        importer = Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search)
+
+        if arguments.json_path:
+            importer.import_from_json(arguments.json_path)
+        else:
+            importer.import_all()
+    except Exception as e:
+        logger.error(f'An unexpected error occurred: {str(e)}')
