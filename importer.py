@@ -103,6 +103,7 @@ class Importer:
             item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
             artists = item.artists  # Artists for Yandex items
 
+            # A workaround for when track name is too long (100+ characters) there is an exception happening because spotify API can not process it.
             if len(item_name) > 100:
                 item_name = item_name[:100]
                 logger.info('Name too long... Trimming to 100 characters. May affect search accuracy')
@@ -227,7 +228,7 @@ class Importer:
                 logger.info(item)
     
     def import_from_json(self, file_path):
-        with open(file_path, "r") as file:
+        with open(file_path, 'r', encoding='utf-8') as file:
             tracks = json.load(file)
 
         spotify_tracks = []
@@ -247,13 +248,13 @@ class Importer:
                 logger.warning('NO')
 
         # Create a new playlist
-        playlist_name = "Imported from VK"
+        playlist_name = 'Imported from JSON'
         playlist = handle_spotify_exception(self.spotify_client.user_playlist_create)(self.user, playlist_name)
 
         # Add tracks to the new playlist
         for chunk in chunks(spotify_tracks, 50):
             logger.info(f'Saving {len(chunk)} tracks...')
-            handle_spotify_exception(self.spotify_client.user_playlist_add_tracks)(self.user, playlist["id"], chunk)
+            handle_spotify_exception(self.spotify_client.user_playlist_add_tracks)(self.user, playlist['id'], chunk)
             logger.info('OK')
 
         logger.error('Not imported tracks:')
@@ -278,7 +279,7 @@ if __name__ == '__main__':
 
     parser.add_argument('-S', '--strict-artists-search', help='Search for an exact match of all artists', default=False)
 
-    parser.add_argument('-j', '--json', help='JSON file to import tracks from')
+    parser.add_argument('-j', '--json-path', help='JSON file to import tracks from')
 
     arguments = parser.parse_args()
 
@@ -301,4 +302,4 @@ if __name__ == '__main__':
         else:
             importer.import_all()
     except Exception as e:
-        logger.error(f"An unexpected error occurred: {str(e)}")
+        logger.error(f'An unexpected error occurred: {str(e)}')
