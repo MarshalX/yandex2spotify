@@ -67,7 +67,7 @@ class NotFoundException(SpotifyException):
 
 
 class Importer:
-    def __init__(self, spotify_client, yandex_client, ignore_list, strict_search):
+    def __init__(self, spotify_client, yandex_client: Client, ignore_list, strict_search):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
 
@@ -173,8 +173,12 @@ class Importer:
             self.not_imported[playlist.title] = []
 
             playlist_tracks = playlist.fetch_tracks()
-            tracks = self.yandex_client.tracks([track.track_id for track in playlist_tracks if track.album_id]) \
-                if playlist.collective else [track.track for track in playlist_tracks]
+            if not playlist.collective:
+                tracks = [track.track for track in playlist_tracks]
+            elif playlist.collective and playlist_tracks:
+                tracks = self.yandex_client.tracks([track.track_id for track in playlist_tracks if track.album_id])
+            else:
+                tracks = []
 
             def save_tracks_callback(importer, spotify_tracks):
                 logger.info(f'Saving {len(spotify_tracks)} tracks in playlist {playlist.title}...')
