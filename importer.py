@@ -2,7 +2,6 @@ import json
 import argparse
 import logging
 from base64 import b64encode
-from os import path
 from time import sleep
 
 import spotipy
@@ -217,7 +216,7 @@ class Importer:
     def import_all(self):
         for item in self._importing_items.values():
             item()
-            
+
         self.print_not_imported()
 
     def print_not_imported(self):
@@ -226,7 +225,7 @@ class Importer:
             logger.info(f'{section}:')
             for item in items:
                 logger.info(item)
-    
+
     def import_from_json(self, file_path):
         with open(file_path, 'r', encoding='utf-8') as file:
             tracks = json.load(file)

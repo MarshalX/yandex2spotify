@@ -4,6 +4,8 @@ A simple Python script that allows to import favorite tracks, playlists, albums,
 
 ## Installation
 
+Requires Python 3.8 or higher.
+
 ```bash
 pip3 install -r requirements.txt
 ```
