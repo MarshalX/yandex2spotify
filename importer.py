@@ -42,7 +42,6 @@ def handle_spotify_exception(func):
         while True:
             try:
                 return func(*args, **kwargs)
-                break
             except SpotifyException as exception:
                 if exception.http_status != 429:
                     raise exception
@@ -90,7 +89,7 @@ class Importer:
         self.not_imported = {}
 
     def _import_item(self, item):
-        # if item is a string, it is a query from the JSON file
+        # if the item is a string, it is a query from the JSON file
         if isinstance(item, str):
             query = item
             item_name = item
@@ -102,7 +101,8 @@ class Importer:
             item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
             artists = item.artists  # Artists for Yandex items
 
-            # A workaround for when track name is too long (100+ characters) there is an exception happening because spotify API can not process it.
+            # A workaround for when track name is too long (100+ characters) there is an exception happening
+            # because spotify API can not process it.
             if len(item_name) > 100:
                 item_name = item_name[:100]
                 logger.info('Name too long... Trimming to 100 characters. May affect search accuracy')
@@ -113,7 +113,7 @@ class Importer:
         logger.info(f'Importing {type_}: {item_name}...')
 
         if not self._strict_search and not isinstance(item, Artist) and not len(found_items) and len(artists) > 1:
-            query = f'{artists[0]} {item.title}'
+            query = f'{artists[0].name} {item.title}'
             found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
 
         logger.info(f'Searching "{query}"...')
@@ -227,15 +227,16 @@ class Importer:
                 logger.info(item)
 
     def import_from_json(self, file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
+        with open(file_path, 'r', encoding='UTF-8') as file:
             tracks = json.load(file)
 
         spotify_tracks = []
         not_imported = []
 
         for track in tracks:
+            query = f'{track["artist"]} {track["track"]}'
+
             try:
-                query = f'{track["artist"]} {track["track"]}'
                 spotify_track_id = self._import_item(query)
                 spotify_tracks.append(spotify_track_id)
                 logger.info('OK')
@@ -301,11 +302,11 @@ if __name__ == '__main__':
             yandex_client_ = Client(arguments.token)
             yandex_client_.init()
 
-        importer = Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search)
+        importer_instance = Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search)
 
         if arguments.json_path:
-            importer.import_from_json(arguments.json_path)
+            importer_instance.import_from_json(arguments.json_path)
         else:
-            importer.import_all()
+            importer_instance.import_all()
     except Exception as e:
         logger.error(f'An unexpected error occurred: {str(e)}')
