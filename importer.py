@@ -99,7 +99,7 @@ class Importer:
         else:
             type_ = item.__class__.__name__.casefold()
             item_name = item.name if isinstance(item, Artist) else f'{", ".join([artist.name for artist in item.artists])} - {item.title}'
-            artists = item.artists  # Artists for Yandex items
+            artists = item.artists if not isinstance(item, Artist) else []  # Artists for Yandex items
 
             # A workaround for when track name is too long (100+ characters) there is an exception happening
             # because spotify API can not process it.
