@@ -130,8 +130,12 @@ class Importer:
         for item in items:
             if item.available:
                 try:
-                    spotify_items.append(self._import_item(item))
-                    logger.info('OK')
+                    spotify_id = self._import_item(item)
+                    if spotify_id is not None:
+                        spotify_items.append(spotify_id)
+                        logger.info('OK')
+                    else:
+                        logger.warning('Item ID is None, skipping...')
                 except NotFoundException as exception:
                     not_imported_section.append(exception.item_name)
                     logger.warning('NO')
@@ -139,8 +143,12 @@ class Importer:
                     not_imported_section.append(item.title)
                     logger.warning('NO')
 
-        for chunk in chunks(spotify_items, 50):
-            save_items_callback(self, chunk)
+        if spotify_items:
+            for chunk in chunks(spotify_items, 50):
+                save_items_callback(self, chunk)
+        else:
+            logger.info('No valid Spotify items to add.')
+
 
     def import_likes(self):
         self.not_imported['Likes'] = []
