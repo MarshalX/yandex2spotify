@@ -187,7 +187,7 @@ class Importer:
             if not playlist.collective:
                 tracks = [track.track for track in playlist_tracks]
             elif playlist.collective and playlist_tracks:
-                tracks = self.yandex_client.tracks([track.track_id for track in playlist_tracks if track.album_id])
+                tracks = self.yandex_client.tracks([track.track_id for track in playlist_tracks])
             else:
                 tracks = []
 
