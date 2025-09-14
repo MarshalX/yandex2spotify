@@ -128,21 +128,20 @@ class Importer:
 
         items.reverse()
         for item in items:
-            if item.available:
-                try:
-                    spotify_id = self._import_item(item)
-                    if spotify_id is None:
-                        logger.warning('Item ID is None, skipping...')
-                        continue
-                    spotify_items.append(spotify_id)
-                    logger.info('OK')
+            try:
+                spotify_id = self._import_item(item)
+                if spotify_id is None:
+                    logger.warning('Item ID is None, skipping...')
+                    continue
+                spotify_items.append(spotify_id)
+                logger.info('OK')
 
-                except NotFoundException as exception:
-                    not_imported_section.append(exception.item_name)
-                    logger.warning('NO')
-                except SpotifyException:
-                    not_imported_section.append(item.title)
-                    logger.warning('NO')
+            except NotFoundException as exception:
+                not_imported_section.append(exception.item_name)
+                logger.warning('NO')
+            except SpotifyException:
+                not_imported_section.append(item.title)
+                logger.warning('NO')
 
         if not spotify_items:
             logger.info('No valid Spotify items to add.')
