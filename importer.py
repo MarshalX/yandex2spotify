@@ -1,6 +1,7 @@
 import json
 import argparse
-import logging
+from loguru import logger
+import sys
 from base64 import b64encode
 from time import sleep
 
@@ -14,12 +15,15 @@ from yandex_music import Client, Artist
 REDIRECT_URI = 'https://open.spotify.com'
 MAX_REQUEST_RETRIES = 5
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+logger.configure(
+    handlers=[
+        {
+            "sink": sys.stderr,
+            "level": "INFO",
+            "format": "<black>{time:YYYY-MM-DD HH:mm:ss,SSS}</black> - <level>{level}</level> - <level>{message}</level>"
+        }
+    ]
 )
-logger = logging.getLogger(__name__)
-
 
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
