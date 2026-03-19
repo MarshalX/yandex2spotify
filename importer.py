@@ -6,7 +6,6 @@ from time import sleep
 
 import spotipy
 from PIL import Image
-from requests.exceptions import ReadTimeout
 from spotipy.exceptions import SpotifyException
 from spotipy.oauth2 import SpotifyOAuth
 from yandex_music import Client, Artist
@@ -16,7 +15,7 @@ MAX_REQUEST_RETRIES = 5
 
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    format='[%(filename)s:%(lineno)s - %(funcName)20s() ] %(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
@@ -43,17 +42,22 @@ def handle_spotify_exception(func):
             try:
                 return func(*args, **kwargs)
             except SpotifyException as exception:
-                if exception.http_status != 429:
+                if exception.http_status not in [429, 404]:
                     raise exception
+
+                if exception.http_status == 404:
+                    logger.warning(f'Read error:\n{exception}\nSkipping...')
+                    break
 
                 if 'retry-after' in exception.headers:
                     sleep(int(exception.headers['retry-after']) + 1)
-            except ReadTimeout as exception:
-                logger.info(f'Read timed out. Retrying #{retry}...')
+
+            except Exception as e:
+                logger.error(f'{e}\n\nRetrying #{retry}...')
 
                 if retry > MAX_REQUEST_RETRIES:
-                    logger.info('Max retries reached.')
-                    raise exception
+                    logger.info('Max retries reached. PASSING...')
+                    break
 
                 logger.info('Trying again...')
                 retry += 1
