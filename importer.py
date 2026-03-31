@@ -1,3 +1,4 @@
+import os
 import json
 import argparse
 import logging
@@ -67,10 +68,11 @@ class NotFoundException(SpotifyException):
 
 
 class Importer:
-    def __init__(self, spotify_client, yandex_client: Client, ignore_list, strict_search, chunk_size):
+    def __init__(self, spotify_client, yandex_client: Client, ignore_list, strict_search, chunk_size, sleep_duration=0.0):
         self.spotify_client = spotify_client
         self.yandex_client = yandex_client
         self.chunk_size = chunk_size
+        self.sleep_duration = sleep_duration
 
         self._importing_items = {
             'likes': self.import_likes,
@@ -88,7 +90,31 @@ class Importer:
         logger.info(f'User ID: {self.user}')
         logger.info(f'Chunk size: {self.chunk_size}')
 
+        self.cache_file = 'search_cache.json'
+        self.search_cache = {}
+        if os.path.exists(self.cache_file):
+            try:
+                with open(self.cache_file, 'r', encoding='utf-8') as f:
+                    self.search_cache = json.load(f)
+            except Exception as e:
+                logger.warning(f'Could not load cache: {e}')
+
         self.not_imported = {}
+
+    def _save_cache(self):
+        try:
+            with open(self.cache_file, 'w', encoding='utf-8') as f:
+                json.dump(self.search_cache, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            logger.warning(f'Could not save cache: {e}')
+
+    def _clear_cache(self):
+        self.search_cache = {}
+        if os.path.exists(self.cache_file):
+            try:
+                os.remove(self.cache_file)
+            except Exception as e:
+                logger.warning(f'Could not remove cache file: {e}')
 
     def _import_item(self, item):
         # if the item is a string, it is a query from the JSON file
@@ -111,19 +137,39 @@ class Importer:
 
             query = item_name.replace('- ', '')
 
+        cache_key = f"{type_}:{query}"
+        if cache_key in self.search_cache:
+            cache_result = self.search_cache[cache_key]
+            if cache_result is None:
+                logger.info(f'Importing {type_}: {item_name}... (cached not found)')
+                raise NotFoundException(item_name)
+            logger.info(f'Importing {type_}: {item_name}... (cached)')
+            return cache_result
+
+        if self.sleep_duration > 0:
+            sleep(self.sleep_duration)
         found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
         logger.info(f'Importing {type_}: {item_name}...')
 
         if not self._strict_search and not isinstance(item, Artist) and not len(found_items) and len(artists) > 1:
             query = f'{artists[0].name} {item.title}'
+            if self.sleep_duration > 0:
+                sleep(self.sleep_duration)
+                
             found_items = handle_spotify_exception(self.spotify_client.search)(query, type=type_)[f'{type_}s']['items']
 
         logger.info(f'Searching "{query}"...')
 
         if not len(found_items):
+            self.search_cache[cache_key] = None
+            self._save_cache()
             raise NotFoundException(item_name)
 
-        return found_items[0]['id']
+        spotify_id = found_items[0]['id']
+        self.search_cache[cache_key] = spotify_id
+        self._save_cache()
+
+        return spotify_id
 
     def _add_items_to_spotify(self, items, not_imported_section, save_items_callback):
         spotify_items = []
@@ -234,6 +280,7 @@ class Importer:
             item()
 
         self.print_not_imported()
+        self._clear_cache()
 
     def print_not_imported(self):
         logger.error('Not imported items:')
@@ -277,6 +324,8 @@ class Importer:
         for track in not_imported:
             logger.info(track)
 
+        self._clear_cache()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Creates a playlist for user')
@@ -303,6 +352,12 @@ if __name__ == '__main__':
         type=int,
         default=40
     )
+    parser.add_argument(
+        '-w', '--sleep',
+        help='Sleep duration between Spotify search requests (seconds)',
+        type=float,
+        default=0.0
+    )
 
     arguments = parser.parse_args()
 
@@ -328,7 +383,14 @@ if __name__ == '__main__':
             yandex_client_ = Client(arguments.token)
             yandex_client_.init()
 
-        importer_instance = Importer(spotify_client_, yandex_client_, arguments.ignore, arguments.strict_artists_search, arguments.chunk)
+        importer_instance = Importer(
+            spotify_client_,
+            yandex_client_,
+            arguments.ignore,
+            arguments.strict_artists_search,
+            arguments.chunk,
+            arguments.sleep
+        )
 
         if arguments.json_path:
             importer_instance.import_from_json(arguments.json_path)
